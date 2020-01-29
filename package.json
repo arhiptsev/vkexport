@@ -1,0 +1,38 @@
+{
+  "name": "vkexport",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/cli-progress": "^3.4.1",
+    "@types/node-downloader-helper": "^1.0.0",
+    "@types/node-fetch": "^2.5.4",
+    "@types/readline-sync": "^1.4.3",
+    "cli-progress": "^3.5.0",
+    "cors": "^2.8.5",
+    "download": "^7.1.0",
+    "express": "^4.17.1",
+    "image-downloader": "^3.5.0",
+    "node-downloader-helper": "^1.0.11",
+    "node-fetch": "^2.6.0",
+    "readline-sync": "^1.4.10",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.5",
+    "sync-request": "^6.1.0",
+    "typescript-require": "^0.2.10"
+  },
+  "devDependencies": {
+    "@types/node": "^13.5.1",
+    "@types/webpack": "^4.41.2",
+    "ts-loader": "^6.2.1",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.7.5",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10"
+  }
+}
