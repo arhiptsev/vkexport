@@ -6,7 +6,7 @@ import syncRequest from 'sync-request';
 export class Auth extends Core {
 
 
-    public token: string = null;
+    protected token: string = null;
 
     private username: string;
     private password: string;
@@ -16,7 +16,7 @@ export class Auth extends Core {
         this.getToken();
     }
 
-    protected getToken() {
+    protected getToken(): void {
 
         try {
             const tokenFile = this.fs.readFileSync('./token.json');
@@ -59,7 +59,7 @@ export class Auth extends Core {
         this.fs.writeFileSync('./token.json', JSON.stringify({ token: token }));
     }
 
-    private errorHandler(res: any) {
+    private errorHandler(res: any): void {
         switch (res.error) {
             case 'need_validation':
                 this.validation();
@@ -72,7 +72,7 @@ export class Auth extends Core {
 
     }
 
-    private invalidClientHandler(res: any) {
+    private invalidClientHandler(res: any): void {
         if (res.error_type === 'username_or_password_is_incorrect') {
             console.log('Неверный логин или пароль.')
             this.getToken();
@@ -100,7 +100,7 @@ export class Auth extends Core {
         return code;
     }
 
-    private requestPassword() {
+    private requestPassword(): string {
         let password = readline.question('Enter your password: ');
         if (!password) { password = this.requestPassword(); }
         return password;
