@@ -18,8 +18,8 @@ export class Auth extends Core {
 
     protected getToken() {
 
-        const tokenFile = this.fs.readFileSync('./token.json');
         try {
+            const tokenFile = this.fs.readFileSync('./token.json');
             const token = JSON.parse(tokenFile.toString());
             if (!token.token) throw new Error();
             this.token = token.token;
@@ -34,7 +34,7 @@ export class Auth extends Core {
                 this.writeToken(res.access_token);
                 this.getToken();
             }
-            
+
 
         }
     }
@@ -65,16 +65,20 @@ export class Auth extends Core {
                 this.validation();
                 break;
             case 'invalid_client':
-                if (res.error_type === 'username_or_password_is_incorrect') {
-                    console.log('Неверный логин или пароль.')
-                    this.getToken();
-                } else {
-                    throw new Error('Возникла непредвиденная ошибка!');
-                }
+                this.invalidClientHandler(res);
                 break;
             default: throw new Error('Возникла непредвиденная ошибка!');
         }
 
+    }
+
+    private invalidClientHandler(res: any) {
+        if (res.error_type === 'username_or_password_is_incorrect') {
+            console.log('Неверный логин или пароль.')
+            this.getToken();
+        } else {
+            throw new Error('Возникла непредвиденная ошибка!');
+        }
     }
 
     private validation(): void {
