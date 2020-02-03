@@ -1,31 +1,31 @@
 import { Auth } from "./auth";
 import { responseMessages, ApiResponse } from "./types";
 import { Response } from "node-fetch";
+import fs from 'fs';
 
 export class Messages extends Auth {
-    public async downloadMessages(user_id: number, dir: string) {
+    public async downloadMessages(user_id: number, dir: string): Promise<void> {
         let offset = 0;
         const count = 200;
         let messages = [];
+        const params = {
+            user_id: user_id,
+            offset: offset,
+            count: 200,
+        }
 
         while (true) {
-            const result = await new Promise<responseMessages>(resolve => {
-                setTimeout(
-                    () => {
-                        this.fetch(`https://api.vk.com/method/messages.getHistory?user_id=${user_id}&offset=${offset}&access_token=${this.token}&v=5.101&count=${count}`)
-                            .then((res: Response) => res.json())
-                            .then((res: ApiResponse<responseMessages>) => resolve(res.response));
-                    },
-                    300
-                );
 
-            });
+            const requestUrl = this.buildRequestUrl('messages', 'getHistory', params)
+            const response = await this.sendRequestWithTimeout<responseMessages>(requestUrl, 300);
+            const result = response.response;
+
             if (result.items.length < 200) break;
-            offset = offset + 200;
+            params.offset += 200;
             messages.push(...result.items);
             console.log(`Downloads ${messages.length} from ${result.count}`);
         }
-        this.fs.writeFileSync(this.path.join(__dirname, 'users', dir, 'messages.json'), JSON.stringify(messages));
+        fs.writeFileSync(this.path.join(__dirname, 'users', dir, 'messages.json'), JSON.stringify(messages));
 
     }
 

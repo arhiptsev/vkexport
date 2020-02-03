@@ -1,12 +1,9 @@
 import { Core } from './core';
 import readline from 'readline-sync';
 import syncRequest from 'sync-request';
-
+import fs from 'fs';
 
 export class Auth extends Core {
-
-
-    protected token: string = null;
 
     private username: string;
     private password: string;
@@ -19,7 +16,7 @@ export class Auth extends Core {
     protected getToken(): void {
 
         try {
-            const tokenFile = this.fs.readFileSync('./token.json');
+            const tokenFile = fs.readFileSync('./token.json');
             const token = JSON.parse(tokenFile.toString());
             if (!token.token) throw new Error();
             this.token = token.token;
@@ -34,8 +31,6 @@ export class Auth extends Core {
                 this.writeToken(res.access_token);
                 this.getToken();
             }
-
-
         }
     }
 
@@ -52,8 +47,6 @@ export class Auth extends Core {
         res = JSON.parse(res.body.toString());
         return res;
     }
-
-
 
     private writeToken(token: string): void {
         this.fs.writeFileSync('./token.json', JSON.stringify({ token: token }));
@@ -91,8 +84,6 @@ export class Auth extends Core {
             this.validation()
         }
     }
-
-
 
     private requestCode(): string {
         let code = readline.question('Need validation, enter code: ');

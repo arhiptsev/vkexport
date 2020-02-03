@@ -1,5 +1,7 @@
 import { Attachments } from './attachments';
-const a = new Attachments();
+import { Messages } from './messages';
+const a = new Messages();
+a.downloadMessages(52968280,'zima');
 
 
 
