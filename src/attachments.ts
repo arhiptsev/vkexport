@@ -2,7 +2,7 @@ import { AttachmentsResponse, Photo, ApiResponse, VideosIdentificationData, Atta
 import cliProgress from 'cli-progress';
 import { Auth } from './auth';
 import { join } from 'path';
-import { writeFileSync } from 'fs';
+import { writeFileSync, existsSync } from 'fs';
 
 export class Attachments extends Auth {
 
@@ -38,16 +38,12 @@ export class Attachments extends Auth {
 
   async getVideoObjects(idsList: Array<VideosIdentificationData>): Promise<Video[]> {
     const videos: Video[] = [];
-    const errors = [];
-    const urlMethod = 'https://api.vk.com/method/video.get';
     let offset = 0;
 
     while (true) {
-
       let idsListPart = idsList.slice(offset, idsList.length - 1);
-      if (idsListPart.length) { break; }
+      if (!idsListPart.length) { break; }
       if (idsListPart.length > 50) { idsListPart = idsListPart.slice(0, 49); }
-
       const idsString = idsListPart
         .map(i => `${i.owner_id}_${i.id}_${i.access_key}`)
         .join(',');
@@ -59,6 +55,7 @@ export class Attachments extends Auth {
       const requestUrl = this.buildRequestUrl('video', 'get', params);
 
       let response = await this.sendRequestWithTimeout<responseVideo>(requestUrl, 500);
+
       videos.push(...response.response.items);
       offset = offset + 50;
       console.log(`Get ${videos.length} of ${idsList.length}`);
@@ -69,7 +66,9 @@ export class Attachments extends Auth {
 
   async downloadVideoFormDialog(dialogId: number, name: string): Promise<void> {
     const errors: any = [];
-    const dir = this.path.join('users', name, 'video');
+    const dir = join('users', name, 'video');
+    this.createDirectory(dir)
+
     let videos: Video[] = [];
 
     const urlList = await this.getVideoIdsFromDialog(dialogId);
@@ -78,12 +77,20 @@ export class Attachments extends Auth {
 
     for (let i = 0; i < videos.length; i++) {
 
-      if (videos[i].files.hasOwnProperty('hls')) { delete videos[i].files.hls }
-      const filename = videos[i].owner_id + '_' + videos[i].id;
-      if (this.fs.existsSync(this.path.join(dir, filename + '.mp4'))) continue;
-      const bestResolutionLink: keyof VideoFiles = <keyof VideoFiles>Object.keys(videos[i].files).pop();
-      const url = videos[i].files[bestResolutionLink];
-      const fullPath = `${dir}/${filename}.mp4`;
+      const files = videos[i].files;
+
+      if (files.hasOwnProperty('hls')) { delete files.hls }
+
+      const filename = `${videos[i].owner_id}_${videos[i].id}.mp4`;
+
+      if (existsSync(join(dir, filename))) continue;
+
+      const bestResolutionLink = <keyof VideoFiles>Object.keys(files).pop();
+
+      const url = files[bestResolutionLink];
+
+      const fullPath = join(dir, filename);
+
       const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
       bar.start(100, 0);
 
@@ -97,7 +104,7 @@ export class Attachments extends Auth {
 
     }
 
-    this.fs.writeFileSync(this.path.join(dir, 'errors.json'), JSON.stringify(errors));
+    writeFileSync(join(dir, 'errors.json'), JSON.stringify(errors));
   }
 
 
@@ -167,7 +174,7 @@ export class Attachments extends Auth {
   private async getPhotosUrl(dialogId: number): Promise<PhotosDataForDownlod[]> {
     const attachmentUrls = [];
     const params = {
-      next_from: '0',
+      start_from: '0',
       peer_id: dialogId,
       media_type: 'photo',
       count: 200,
@@ -184,8 +191,8 @@ export class Attachments extends Auth {
         };
       });
 
-
-      params.next_from = result.response.next_from;
+      console.log(result.response.next_from);
+      params.start_from = result.response.next_from;
 
       attachmentUrls.push(...photos);
 

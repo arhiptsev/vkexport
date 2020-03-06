@@ -3,6 +3,7 @@ import { Messages } from './messages';
 import readline from 'readline-sync';
 import { Auth } from './auth';
 import { ConversationsList } from './types';
+import syncRequest from 'sync-request';
 
 export class Main extends Auth {
     private peerId: number;
@@ -12,7 +13,25 @@ export class Main extends Auth {
         this.init();
     }
 
+    private getNameOfCurrentToken(): string {
+        const request = this.buildRequestUrl('account', 'getProfileInfo');
+        const res = syncRequest('GET', request);
+        const data = JSON.parse(res.body.toString());
+        return `${data.response.first_name} ${data.response.last_name}`;
+    }
+
+
+
+
     private init(): void {
+
+        const name = this.getNameOfCurrentToken();
+
+        if (!readline.keyInYNStrict(`Текущий аккаунт: ${name}, продолжить работу или войти в другой аккаунт?`)) {
+            this.writeToken(null);
+            this.getToken();
+            this.init();
+        }
         this.requestPeerId();
         this.switchAction();
     }

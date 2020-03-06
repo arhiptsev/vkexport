@@ -13,13 +13,15 @@ export class Auth extends Core {
         this.getToken();
     }
 
-    public getToken(): void {
+    public async getToken(): Promise<void> {
 
         try {
             const tokenFile = fs.readFileSync('./token.json');
             const token = JSON.parse(tokenFile.toString());
             if (!token.token) throw new Error();
             this.token = token.token;
+
+
         }
         catch (e) {
             this.username = this.requestUsername();
@@ -34,8 +36,9 @@ export class Auth extends Core {
         }
     }
 
+
     private requestUsername(): string {
-        let username = readline.question('Token not found, enter you Username: ');
+        let username = readline.question('Авторизованный аккаунт не найден, введите ваш логин: ');
         if (!username) { username = this.requestUsername(); }
         return username;
     }
@@ -48,7 +51,7 @@ export class Auth extends Core {
         return res;
     }
 
-    private writeToken(token: string): void {
+    protected writeToken(token: string): void {
         this.fs.writeFileSync('./token.json', JSON.stringify({ token: token }));
     }
 
@@ -86,13 +89,13 @@ export class Auth extends Core {
     }
 
     private requestCode(): string {
-        let code = readline.question('Need validation, enter code: ');
+        let code = readline.question('Введите проверочный код: ');
         if (!code) { code = this.requestCode(); }
         return code;
     }
 
     private requestPassword(): string {
-        let password = readline.question('Enter your password: ');
+        let password = readline.question('Введите ваш пароль: ');
         if (!password) { password = this.requestPassword(); }
         return password;
     }
