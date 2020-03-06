@@ -1,7 +1,7 @@
 import { Auth } from "./auth";
-import { responseMessages, ApiResponse } from "./types";
-import { Response } from "node-fetch";
-import fs from 'fs';
+import { responseMessages } from "./types";
+import {writeFileSync } from 'fs';
+import path from 'path';
 
 export class Messages extends Auth {
     public async downloadMessages(user_id: number, dir: string): Promise<void> {
@@ -25,9 +25,15 @@ export class Messages extends Auth {
             messages.push(...result.items);
             console.log(`Downloads ${messages.length} from ${result.count}`);
         }
-        fs.writeFileSync(this.path.join(__dirname, 'users', dir, 'messages.json'), JSON.stringify(messages));
+
+        const directory = path.join('users', dir);
+
+        this.createDirectory(directory);
+
+        writeFileSync(path.join(directory, 'messages.json'), JSON.stringify(messages));
 
     }
+
 
 
 }

@@ -13,7 +13,7 @@ export class Auth extends Core {
         this.getToken();
     }
 
-    protected getToken(): void {
+    public getToken(): void {
 
         try {
             const tokenFile = fs.readFileSync('./token.json');

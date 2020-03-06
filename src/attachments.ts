@@ -1,9 +1,10 @@
-import { Messages } from './messages';
 import { AttachmentsResponse, Photo, ApiResponse, VideosIdentificationData, Attachment, Video, Message, MessageAttachement, PhotosDataForDownlod, VideoFiles, responseVideo } from './types';
-import { Response } from "node-fetch";
 import cliProgress from 'cli-progress';
+import { Auth } from './auth';
+import { join } from 'path';
+import { writeFileSync } from 'fs';
 
-export class Attachments extends Messages {
+export class Attachments extends Auth {
 
 
 
@@ -142,35 +143,38 @@ export class Attachments extends Messages {
   }
 
 
-  private async downloadPhotos(urls: PhotosDataForDownlod[], path: string): Promise<void> {
+  private async downloadPhotos(urls: PhotosDataForDownlod[], dir: string): Promise<void> {
     const errors = [];
+    const directory = join('users', dir, 'photo');
+    this.createDirectory(directory);
     for (let i = 0; i < urls.length; i++) {
       try {
-        const fullPath = `./users/${path}/photo/${urls[i].id}.jpg`;
+        const fullPath = join(directory, `${urls[i].id}.jpg`);
         await this.downloadFile(fullPath, urls[i].url);
         console.log(`Complete ${i + 1} from ${urls.length}`);
       } catch (e) {
         errors.push(urls[i]);
       }
     }
-    this.fs.writeFileSync(`./users/${path}/photo/errors.json`, JSON.stringify(errors));
+    writeFileSync(join(directory, 'errors.json'), JSON.stringify(errors));
 
     if (errors.length) { console.warn(`Errors: ${errors.length}`) }
   }
 
 
 
+
   private async getPhotosUrl(dialogId: number): Promise<PhotosDataForDownlod[]> {
     const attachmentUrls = [];
     const params = {
-      offset: '0',
+      next_from: '0',
       peer_id: dialogId,
       media_type: 'photo',
       count: 200,
     };
     while (true) {
 
-      const requestUrl = this.buildRequestUrl('messages', 'getHistoryAttachments')
+      const requestUrl = this.buildRequestUrl('messages', 'getHistoryAttachments', params);
       let result = await this.sendRequestWithTimeout<AttachmentsResponse<Photo>>(requestUrl, 200);
       const photos = result.response.items.map(i => {
         return {
@@ -180,13 +184,14 @@ export class Attachments extends Messages {
         };
       });
 
-      if (photos.length == 0) break;
 
-      params.offset = result.response.next_from;
+      params.next_from = result.response.next_from;
 
       attachmentUrls.push(...photos);
 
-      console.log(`Found: ${attachmentUrls.length}`)
+      console.log(`Found: ${attachmentUrls.length}`);
+      if (photos.length < 200) break;
+
     }
     return attachmentUrls;
 

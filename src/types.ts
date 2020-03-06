@@ -1,4 +1,3 @@
-import { SrvRecord } from "dns";
 
 export interface ApiResponse<T> {
     response: T;
@@ -30,6 +29,27 @@ export interface responseMessages {
 export interface responseVideo {
     count: number;
     items: Video[];
+}
+
+export interface ConversationsList {
+    count: number;
+    items: Conversation[];
+}
+
+export interface Conversation {
+
+    peer: {
+        id: number;
+        type: string;
+        local_id: number;
+    };
+    last_message_id: number,
+    in_read: number,
+    out_read: number,
+    can_write: {
+        allowed: boolean
+    }
+
 }
 
 export interface Message {
@@ -129,10 +149,10 @@ export interface Video {
 }
 
 export interface VideoFiles {
-    mp4_240?:string;
-    mp4_360?:string;
-    mp4_480?:string;
-    mp4_720?:string;
+    mp4_240?: string;
+    mp4_360?: string;
+    mp4_480?: string;
+    mp4_720?: string;
     hls?: string;
     external?: string;
 }

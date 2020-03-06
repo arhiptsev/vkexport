@@ -1,5 +1,5 @@
 import fetch, { Response } from 'node-fetch';
-import fs from 'fs';
+import fs, { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { ApiResponse } from './types';
 
@@ -57,4 +57,10 @@ export class Core {
 
         });
     }
+
+    protected createDirectory(dir: string): void {
+        if (!existsSync(dir)) {
+          mkdirSync(dir, { recursive: true });
+        }
+      }
 }

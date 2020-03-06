@@ -1,8 +1,9 @@
-const path = require('path');
-const fs = require('fs');
+import { readdirSync } from "fs";
+import { resolve } from "path";
 
-var nodeModules: any = {};
-fs.readdirSync('node_modules')
+
+const nodeModules: any = {};
+readdirSync('node_modules')
   .filter((x: any) => ['.bin'].indexOf(x) === -1)
   .forEach((mod: any) => nodeModules[mod] = 'commonjs ' + mod);
 
@@ -27,6 +28,6 @@ module.exports = {
   node: { fs: 'empty' },
   output: {
     filename: 'main.js',
-    path: path.resolve(__dirname, 'dist'),
+    path: resolve(__dirname, 'dist'),
   },
 };
