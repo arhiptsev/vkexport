@@ -4,35 +4,51 @@ import readline from 'readline-sync';
 import { Auth } from './auth';
 import { ConversationsList } from './types';
 import syncRequest from 'sync-request';
+import { Core } from './core';
+import axios from 'axios';
+import { Injectable } from './di/injectable';
+import { AXIOS_TOKEN } from './constants';
+import { Injector } from './di/injector';
+import { HttpClient } from './http/http_client';
+import { RequestBuilder } from './http/request_buider';
+import { Inject } from './di/inject';
 
-export class Main extends Auth {
+@Injectable()
+export class Main {
+
     private peerId: number;
 
-    constructor() {
-        super();
+    constructor(
+        private core: Core,
+        private auth: Auth,
+        private attachments: Attachments,
+        private messages: Messages,
+        private http: HttpClient
+    ) {
         this.init();
     }
 
     private getNameOfCurrentToken(): string {
-        const request = this.buildRequestUrl('account', 'getProfileInfo');
+        const request = this.core.buildRequestUrl('account', 'getProfileInfo');
         const res = syncRequest('GET', request);
+
         const data = JSON.parse(res.body.toString());
         return `${data.response.first_name} ${data.response.last_name}`;
     }
 
 
+    private async init(): Promise<void> {
 
-
-    private init(): void {
+        await this.auth.getToken();
 
         const name = this.getNameOfCurrentToken();
 
         if (!readline.keyInYNStrict(`Текущий аккаунт: ${name}, продолжить работу или войти в другой аккаунт?`)) {
-            this.writeToken(null);
-            this.getToken();
+            this.auth.writeToken(null);
+            await this.auth.getToken();
             this.init();
         }
-        this.requestPeerId();
+        await this.requestPeerId();
         this.switchAction();
     }
 
@@ -64,85 +80,57 @@ export class Main extends Auth {
     }
 
     private exportMessages(): void {
-        const messages = new Messages();
-        messages.downloadMessages(this.peerId, this.peerId.toString())
+        this.messages.downloadMessages(this.peerId, this.peerId.toString())
     }
 
-    private exportPhoto(): void {
-        const attachments = new Attachments();
-        attachments.downloadPhotosFromDialog(this.peerId, this.peerId.toString());
+    private async exportPhoto(): Promise<void> {
+        await this.attachments.downloadPhotosFromDialog(this.peerId, this.peerId.toString());
+        console.log('Экспорт фото завершен');
+        this.switchAction();
     }
 
-    private exportVideo(): void {
-        const attachments = new Attachments();
-        attachments.downloadVideoFormDialog(this.peerId, this.peerId.toString());
+    private async exportVideo(): Promise<void> {
+        await this.attachments.downloadVideoFormDialog(this.peerId, this.peerId.toString());
+        console.log('Экспорт видео завершен');
+        this.switchAction();
     }
 
-    private requestPeerId(): void {
+    private async requestPeerId(): Promise<void> {
+
         this.peerId = readline.questionInt('Введите id диалога:');
-        this.sendRequestWithTimeout<ConversationsList>(
-            this.buildRequestUrl('messages', 'getConversationsById', { peer_ids: this.peerId })
-            , 0
-        ).then(res => {
-            if (!res.response) {
-                console.log('Неверный идентификатор диалога!!!');
-                this.requestPeerId();
-            }
-        });
+
+        const res = await this.http.buildRequest()
+            .section('messages')
+            .method('getConversationsById')
+            .params({
+                peer_ids: this.peerId
+            })
+            .send<ConversationsList>();
+
+        if (!res.response) {
+            this.requestPeerId();
+        }
     }
 }
 
+const injector = new Injector();
 
-new Main();
-
-// const a = new Messages();
-// a.downloadMessages(52968280,'zima');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+injector.provideDependencies([
+    Main,
+    Core,
+    Auth,
+    Attachments,
+    Messages,
+    HttpClient,
+    {
+        token: RequestBuilder,
+        singleton: true
+    },
+    {
+        token: AXIOS_TOKEN,
+        value: axios.create()
+    }
+])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+injector.getDependency(Main);

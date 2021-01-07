@@ -1,30 +1,36 @@
 import fetch, { Response } from 'node-fetch';
-import fs, { existsSync, mkdirSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { ApiResponse } from './types';
+import { AxiosInstance } from 'axios';
+import { Inject } from './di/inject';
+import { AXIOS_TOKEN } from './constants';
+import { Auth } from './auth';
+import { Injectable } from './di/injectable';
 
 
-
+@Injectable()
 export class Core {
-    fetch = fetch;
-    fs = fs;
-    path = path;
-    protected token: string = null;
 
-    protected sendRequestWithTimeout<T>(request: string, timeout: number): Promise<ApiResponse<T>> {
+    constructor(
+        private auth: Auth,
+        @Inject(AXIOS_TOKEN) protected http: AxiosInstance,
+    ) { }
+
+    public sendRequestWithTimeout<T>(request: string, timeout: number): Promise<ApiResponse<T>> {
         return new Promise<ApiResponse<T>>(resolve =>
             setTimeout(() =>
-                this.fetch(request)
-                    .then((res: Response) => res.json())
+                this.http.get<ApiResponse<T>>(request)
+                    .then(res => res.data)
                     .then(resolve),
                 timeout
             ));
     }
 
-    protected buildRequestUrl(section: string, method: string, params?: { [key: string]: string | number }): string {
+    public buildRequestUrl(section: string, method: string, params?: { [key: string]: string | number }): string {
 
         const url = 'https://api.vk.com/method';
-        let requestUrl = `${url}/${section}.${method}?access_token=${this.token}&v=5.101`;
+        let requestUrl = `${url}/${section}.${method}?access_token=${this.auth.token}&v=5.101`;
         if (params) {
             for (let key in params) {
                 requestUrl += `&${key}=${params[key]}`;
@@ -33,13 +39,13 @@ export class Core {
         return requestUrl;
     }
 
-    protected async downloadFile(
+    public async downloadFile(
         fullPath: string,
         url: string,
         onProgress?: (current: number, length: number) => void
     ): Promise<any> {
         await new Promise((resolve, reject) => {
-            const dl = this.fetch(url)
+            const dl = fetch(url)
                 .then(res => {
                     if (res.ok) {
                         let currentLength = 0;
@@ -48,7 +54,7 @@ export class Core {
                             currentLength += d.length;
                             !onProgress || onProgress(currentLength, fullLength);
                         });
-                        const stream = fs.createWriteStream(fullPath);
+                        const stream = createWriteStream(fullPath);
                         stream.on('finish', resolve);
                         res.body.on('error', reject)
                         res.body.pipe(stream);
@@ -58,9 +64,9 @@ export class Core {
         });
     }
 
-    protected createDirectory(dir: string): void {
+    public createDirectory(dir: string): void {
         if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
+            mkdirSync(dir, { recursive: true });
         }
-      }
+    }
 }

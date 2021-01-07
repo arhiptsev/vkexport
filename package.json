@@ -10,11 +10,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.21.1",
     "cli-progress": "^3.5.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "node-fetch": "^2.6.0",
     "readline-sync": "^1.4.10",
+    "reflect-metadata": "^0.1.13",
     "request": "^2.88.0",
     "sync-request": "^6.1.0",
     "typescript-require": "^0.2.10"

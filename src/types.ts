@@ -3,11 +3,28 @@ export interface ApiResponse<T> {
     response: T;
 }
 
+export type AuthParams = {
+    grant_type: string;
+    client_id: number;
+    client_secret: string;
+    username: string;
+    password: string;
+    v: number;
+    '2fa_supported': 1 | 0;
+    code?: string;
+}
+
 export interface VideosIdentificationData {
     id: number;
     owner_id: number;
     access_key: string;
 }
+
+export interface PhotoData {
+    messageId: number;
+    id: number,
+    url: string;
+};
 
 export interface AttachmentsResponse<T> {
     items: Array<MessageAttachement<T>>;

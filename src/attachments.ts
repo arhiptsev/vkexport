@@ -1,11 +1,21 @@
-import { AttachmentsResponse, Photo, ApiResponse, VideosIdentificationData, Attachment, Video, Message, MessageAttachement, PhotosDataForDownlod, VideoFiles, responseVideo } from './types';
+import { AttachmentsResponse, Photo, ApiResponse, VideosIdentificationData, Attachment, Video, Message, MessageAttachement, PhotosDataForDownlod, VideoFiles, responseVideo, PhotoData } from './types';
 import cliProgress from 'cli-progress';
-import { Auth } from './auth';
 import { join } from 'path';
 import { writeFileSync, existsSync } from 'fs';
+import { Core } from './core';
+import { HttpClient } from './http/http_client';
+import { Injectable } from './di/injectable';
 
-export class Attachments extends Auth {
+@Injectable()
+export class Attachments {
 
+
+  constructor(
+    private core: Core,
+    private http: HttpClient
+  ) {
+
+  }
 
 
   async getVideoIdsFromDialog(dialogId: number): Promise<VideosIdentificationData[]> {
@@ -17,9 +27,10 @@ export class Attachments extends Auth {
       media_type: 'video',
       count: 200,
     }
+
     while (true) {
-      const requestUrl = this.buildRequestUrl('messages', 'getHistoryAttachments', params);
-      let res = await this.sendRequestWithTimeout<AttachmentsResponse<Photo>>(requestUrl, 300);
+      const requestUrl = this.core.buildRequestUrl('messages', 'getHistoryAttachments', params);
+      let res = await this.core.sendRequestWithTimeout<AttachmentsResponse<Photo>>(requestUrl, 300);
 
       if (res.response.items.length == 0) break;
       accessKeysList.push(...res.response.items.map(v => {
@@ -52,9 +63,9 @@ export class Attachments extends Auth {
         videos: idsString,
         count: 200
       }
-      const requestUrl = this.buildRequestUrl('video', 'get', params);
+      const requestUrl = this.core.buildRequestUrl('video', 'get', params);
 
-      let response = await this.sendRequestWithTimeout<responseVideo>(requestUrl, 500);
+      let response = await this.core.sendRequestWithTimeout<responseVideo>(requestUrl, 500);
 
       videos.push(...response.response.items);
       offset = offset + 50;
@@ -67,7 +78,7 @@ export class Attachments extends Auth {
   async downloadVideoFormDialog(dialogId: number, name: string): Promise<void> {
     const errors: any = [];
     const dir = join('users', name, 'video');
-    this.createDirectory(dir)
+    this.core.createDirectory(dir)
 
     let videos: Video[] = [];
 
@@ -94,7 +105,7 @@ export class Attachments extends Auth {
       const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
       bar.start(100, 0);
 
-      await this.downloadFile(fullPath, url, (c, l) => {
+      await this.core.downloadFile(fullPath, url, (c, l) => {
         bar.update(Math.floor(c / (l / 100)));
       });
       bar.stop();
@@ -153,11 +164,12 @@ export class Attachments extends Auth {
   private async downloadPhotos(urls: PhotosDataForDownlod[], dir: string): Promise<void> {
     const errors = [];
     const directory = join('users', dir, 'photo');
-    this.createDirectory(directory);
+    this.core.createDirectory(directory);
+
     for (let i = 0; i < urls.length; i++) {
       try {
         const fullPath = join(directory, `${urls[i].id}.jpg`);
-        await this.downloadFile(fullPath, urls[i].url);
+        await this.core.downloadFile(fullPath, urls[i].url);
         console.log(`Complete ${i + 1} from ${urls.length}`);
       } catch (e) {
         errors.push(urls[i]);
@@ -173,16 +185,33 @@ export class Attachments extends Auth {
 
   private async getPhotosUrl(dialogId: number): Promise<PhotosDataForDownlod[]> {
     const attachmentUrls = [];
+
+    for await (let photos of this.photoUrlLoader(dialogId)) {
+      attachmentUrls.push(...photos);
+      console.log(`Found: ${attachmentUrls.length}`);
+    }
+
+    return attachmentUrls;
+  }
+
+  private async *photoUrlLoader(dialogId: number): AsyncIterable<PhotoData[]> {
+
     const params = {
       start_from: '0',
       peer_id: dialogId,
       media_type: 'photo',
       count: 200,
     };
+
+    const request = this.http.buildRequest()
+      .section('messages')
+      .method('getHistoryAttachments')
+
     while (true) {
 
-      const requestUrl = this.buildRequestUrl('messages', 'getHistoryAttachments', params);
-      let result = await this.sendRequestWithTimeout<AttachmentsResponse<Photo>>(requestUrl, 200);
+      const result = await request.params(params)
+        .send<AttachmentsResponse<Photo>>(200);
+
       const photos = result.response.items.map(i => {
         return {
           messageId: i.message_id,
@@ -191,17 +220,13 @@ export class Attachments extends Auth {
         };
       });
 
-      console.log(result.response.next_from);
       params.start_from = result.response.next_from;
 
-      attachmentUrls.push(...photos);
+      yield photos;
 
-      console.log(`Found: ${attachmentUrls.length}`);
       if (photos.length < 200) break;
 
     }
-    return attachmentUrls;
-
   }
 
   private getPhotoBestResolutionLink(photo: Photo): string {

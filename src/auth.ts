@@ -1,37 +1,40 @@
-import { Core } from './core';
 import readline from 'readline-sync';
-import syncRequest from 'sync-request';
-import fs from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
+import { AXIOS_TOKEN } from './constants';
+import { AxiosInstance } from 'axios';
+import { AuthParams } from './types';
+import { Injectable } from './di/injectable';
+import { Inject } from './di/inject';
 
-export class Auth extends Core {
+@Injectable()
+export class Auth {
 
     private username: string;
     private password: string;
+    public token: string;
 
-    constructor() {
-        super();
-        this.getToken();
-    }
+    constructor(
+        @Inject(AXIOS_TOKEN) private axios: AxiosInstance
+    ) { }
 
     public async getToken(): Promise<void> {
 
         try {
-            const tokenFile = fs.readFileSync('./token.json');
+            const tokenFile = readFileSync('./token.json');
             const token = JSON.parse(tokenFile.toString());
             if (!token.token) throw new Error();
             this.token = token.token;
-
-
         }
-        catch (e) {
+        catch {
             this.username = this.requestUsername();
             this.password = this.requestPassword();
-            const res = this.sendAuthRequest();
-            if (res.hasOwnProperty('error') && !res.hasOwnProperty('access_token')) {
-                this.errorHandler(res);
-            } else {
+            try {
+                const res = await this.sendAuthRequest();
                 this.writeToken(res.access_token);
-                this.getToken();
+                await this.getToken();
+            }
+            catch (error) {
+                await this.errorHandler(error.response.data);
             }
         }
     }
@@ -43,19 +46,31 @@ export class Auth extends Core {
         return username;
     }
 
-    private sendAuthRequest(code?: string): any {
-        let url = `https://oauth.vk.com/token?grant_type=password&client_id=2274003&client_secret=hHbZxrka2uZ6jB1inYsH&username=${this.username}&password=${this.password}&v=5.103&2fa_supported=1`;
-        if (code) url += `&code=${code}`;
-        let res: any = syncRequest('GET', url)
-        res = JSON.parse(res.body.toString());
-        return res;
+    private async sendAuthRequest(code?: string): Promise<any> {
+
+        const params: AuthParams = {
+            grant_type: 'password',
+            client_id: 2274003,
+            client_secret: 'hHbZxrka2uZ6jB1inYsH',
+            username: this.username,
+            password: this.password,
+            v: 5.103,
+            '2fa_supported': 1
+        };
+
+        if (code) {
+            params.code = code;
+        };
+
+        const { data } = await this.axios.get('https://oauth.vk.com/token', { params });
+        return data;
     }
 
-    protected writeToken(token: string): void {
-        this.fs.writeFileSync('./token.json', JSON.stringify({ token: token }));
+    public writeToken(token: string): void {
+        writeFileSync('./token.json', JSON.stringify({ token: token }));
     }
 
-    private errorHandler(res: any): void {
+    private async errorHandler(res: any): Promise<void> {
         switch (res.error) {
             case 'need_validation':
                 this.validation();
@@ -77,9 +92,9 @@ export class Auth extends Core {
         }
     }
 
-    private validation(): void {
+    private async validation(): Promise<void> {
         const code = this.requestCode();
-        const r = this.sendAuthRequest(code);
+        const r = await this.sendAuthRequest(code);
         if (r.access_token) {
             this.writeToken(r.access_token);
             this.getToken();

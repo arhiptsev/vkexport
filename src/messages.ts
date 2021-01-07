@@ -1,9 +1,19 @@
 import { Auth } from "./auth";
 import { responseMessages } from "./types";
-import {writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import path from 'path';
+import { Core } from "./core";
+import { Injectable } from "./di/injectable";
 
-export class Messages extends Auth {
+@Injectable()
+export class Messages {
+
+    constructor(
+        private core: Core
+    ){
+
+    }
+
     public async downloadMessages(user_id: number, dir: string): Promise<void> {
         let offset = 0;
         const count = 200;
@@ -16,8 +26,8 @@ export class Messages extends Auth {
 
         while (true) {
 
-            const requestUrl = this.buildRequestUrl('messages', 'getHistory', params)
-            const response = await this.sendRequestWithTimeout<responseMessages>(requestUrl, 300);
+            const requestUrl = this.core.buildRequestUrl('messages', 'getHistory', params)
+            const response = await this.core.sendRequestWithTimeout<responseMessages>(requestUrl, 300);
             const result = response.response;
 
             if (result.items.length < 200) break;
@@ -28,7 +38,7 @@ export class Messages extends Auth {
 
         const directory = path.join('users', dir);
 
-        this.createDirectory(directory);
+        this.core.createDirectory(directory);
 
         writeFileSync(path.join(directory, 'messages.json'), JSON.stringify(messages));
 
