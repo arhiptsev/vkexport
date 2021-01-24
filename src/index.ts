@@ -2,7 +2,7 @@ import { Attachments } from './attachments/attachments';
 import { Messages } from './messages';
 import readline from 'readline-sync';
 import { Auth } from './auth';
-import { Attachment, ConversationsList, Message, Photo, Video, VideoFiles } from './types';
+import {  ConversationsList,  } from './types';
 import syncRequest from 'sync-request';
 import { Core } from './core';
 import axios from 'axios';
@@ -11,9 +11,9 @@ import { AXIOS_TOKEN } from './constants';
 import { Injector } from './di/injector';
 import { HttpClient } from './http/http_client';
 import { RequestBuilder } from './http/request_buider';
-import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { getJsonFromFile, isPhoto, isVideo } from './utils/get-json-from-file';
+import { AttachmentDownloader } from './attachments/attachmentDownloader';
+import { PhotoAttachments } from './attachments/photos';
+import { VideoAttachemnts } from './attachments/videos';
 
 
 @Injectable()
@@ -25,6 +25,8 @@ export class Main {
         private core: Core,
         private auth: Auth,
         private attachments: Attachments,
+        private photoAttachments: PhotoAttachments,
+        private videoAttachments: VideoAttachemnts,
         private messages: Messages,
         private http: HttpClient
     ) {
@@ -89,13 +91,13 @@ export class Main {
     }
 
     private async exportPhoto(): Promise<void> {
-        await this.attachments.downloadPhotosFromDialog(this.peerId, this.peerId.toString());
+        await this.photoAttachments.downloadPhotosFromDialog(this.peerId);
         console.log('Экспорт фото завершен');
         this.switchAction();
     }
 
     private async exportVideo(): Promise<void> {
-        await this.attachments.downloadVideoFormDialog(this.peerId, this.peerId.toString());
+        await this.videoAttachments.downloadVideoFormDialog(this.peerId);
         console.log('Экспорт видео завершен');
         this.switchAction();
     }
@@ -130,12 +132,15 @@ export class Main {
 const injector = new Injector();
 
 injector.provideDependencies([
-    Main,
+    HttpClient,
     Core,
     Auth,
-    Attachments,
     Messages,
-    HttpClient,
+    Attachments,
+    VideoAttachemnts,
+    PhotoAttachments,
+    AttachmentDownloader,
+    Main,
     {
         token: RequestBuilder,
         singleton: true
