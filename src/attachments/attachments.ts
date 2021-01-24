@@ -1,22 +1,23 @@
-import { AttachmentsResponse, Photo, ApiResponse, VideosIdentificationData, Attachment, Video, Message, MessageAttachement, PhotosDataForDownlod, VideoFiles, responseVideo, PhotoData } from './types';
+import { AttachmentsResponse, Photo, VideosIdentificationData, Attachment, Video, Message, PhotosDataForDownlod, VideoFiles, responseVideo, PhotoData, AttachmenInfo } from '../types';
 import cliProgress from 'cli-progress';
 import { join } from 'path';
 import { writeFileSync, existsSync } from 'fs';
-import { Core } from './core';
-import { HttpClient } from './http/http_client';
-import { Injectable } from './di/injectable';
+import { Core } from '../core';
+import { HttpClient } from '../http/http_client';
+import { Injectable } from '../di/injectable';
+import { getJsonFromFile, isPhoto, isVideo } from '../utils/get-json-from-file';
+import { at, pick } from 'lodash';
+import { getPhotoBestResolutionLink, getVideoBestResolutionLink } from '../utils/attachments';
+import logUpdate from 'log-update';
+import { FORMAT_PROGRESS_BAR } from '../common/constants';
 
 @Injectable()
 export class Attachments {
 
-
   constructor(
     private core: Core,
     private http: HttpClient
-  ) {
-
-  }
-
+  ) { }
 
   async getVideoIdsFromDialog(dialogId: number): Promise<VideosIdentificationData[]> {
     const accessKeysList = [];
@@ -118,6 +119,92 @@ export class Attachments {
     writeFileSync(join(dir, 'errors.json'), JSON.stringify(errors));
   }
 
+  public async downloadAttachmentsFromDialog(peerId): Promise<void> {
+    const directory = join('users', `${peerId}`);
+
+
+    if (!existsSync(join(directory, 'messages.json'))) {
+      throw new Error('Для этого пользователя диалог не загружен!');
+    }
+
+    try {
+      const messages = getJsonFromFile(join(directory, 'messages.json'));
+      const result = this.getAttachmentUrlsFromMessages(messages);
+
+      const dir = join('users', `${peerId}`, 'attachments');
+      await this.attachmentDownloader(result, dir);
+      // writeFileSync(join('users', `${peerId}`, 'test.json'), JSON.stringify(result));
+    } catch {
+      throw new Error('Ошибка чтения диалога!');
+    }
+  }
+
+  private async attachmentDownloader(attachments: AttachmenInfo[], dir: string): Promise<void> {
+    this.core.createDirectory(dir);
+
+    const bar = new cliProgress.SingleBar({
+      format: FORMAT_PROGRESS_BAR,
+    }, cliProgress.Presets.shades_classic);
+
+    console.log('Downloading attachemnts:');
+    let loaded = 0;
+    bar.start(100, 0, { loaded, totalItems: attachments.length });
+    for (let attachment of attachments) {
+      bar.update(0, { loaded });
+
+      const filename = `${attachment.owner_id}_${attachment.id}.${attachment.type === 'video' ? 'mp4' : 'jpg'}`;
+      if (existsSync(join(dir, filename))) {
+        loaded++;
+        continue
+      };
+      await this.core.downloadFile(join(dir, `${filename}`), attachment.url, (c, l) => {
+        bar.update(Math.floor(c / (l / 100)));
+      });
+      loaded++;
+    }
+  }
+
+
+  private getAttachmentUrlsFromMessages(messages: Message[]): AttachmenInfo[] {
+    return messages.map(message => {
+      const result: AttachmenInfo[] = [];
+
+      if (message.attachments) {
+        result.push(...this.getAttachmensFromMessage(message.attachments));
+      }
+      if (message.fwd_messages) {
+        result.push(...this.getAttachmentUrlsFromMessages(message.fwd_messages));
+      }
+      return result;
+
+    }).flat();
+  }
+
+  private getAttachmensFromMessage(attachments: Attachment<any>[]): AttachmenInfo[] {
+    return attachments.map(attachment => {
+
+      if (isPhoto(attachment)) {
+
+        return {
+          ...pick(attachment.photo, 'id', 'owner_id'),
+          url: getPhotoBestResolutionLink(attachment.photo),
+          type: 'photo'
+        };
+      }
+
+      if (isVideo(attachment)) {
+        if (!attachment.video.files) return;
+
+        return {
+          ...pick(attachment.video, 'id', 'owner_id'),
+          url: getVideoBestResolutionLink(attachment.video.files),
+          type: 'video'
+        };
+      }
+
+    }).filter(item => item && item.url !== undefined);
+
+  }
 
 
 
@@ -146,7 +233,7 @@ export class Attachments {
         let ss = photos.map((r: Photo) => {
           return {
             id: r.id,
-            url: this.getPhotoBestResolutionLink(r)
+            url: getPhotoBestResolutionLink(r)
           };
         });
         urls.push(...ss);
@@ -162,6 +249,7 @@ export class Attachments {
 
 
   private async downloadPhotos(urls: PhotosDataForDownlod[], dir: string): Promise<void> {
+
     const errors = [];
     const directory = join('users', dir, 'photo');
     this.core.createDirectory(directory);
@@ -216,7 +304,7 @@ export class Attachments {
         return {
           messageId: i.message_id,
           id: i.attachment.photo.id,
-          url: this.getPhotoBestResolutionLink(i.attachment.photo)
+          url: getPhotoBestResolutionLink(i.attachment.photo)
         };
       });
 
@@ -229,16 +317,5 @@ export class Attachments {
     }
   }
 
-  private getPhotoBestResolutionLink(photo: Photo): string {
-    let link = "";
-    const sizePriority = ["w", "z", "y", "x", "m", "s"];
-    for (let size of sizePriority) {
-      if (photo.sizes.find(i => i.type == size) !== undefined) {
-        link = photo.sizes.find(i => i.type == size).url;
-        break;
-      }
-    }
-    return link;
-  }
 
 }

@@ -1,0 +1,1 @@
+export const FORMAT_PROGRESS_BAR = '[{bar}] {percentage}% | ETA: {eta}s | |Loaded: {loaded}/{totalItems} | {value}/{total}';

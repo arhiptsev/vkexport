@@ -1,7 +1,6 @@
-import { Auth } from "./auth";
 import { responseMessages } from "./types";
 import { writeFileSync } from 'fs';
-import path from 'path';
+import  { join } from 'path';
 import { Core } from "./core";
 import { Injectable } from "./di/injectable";
 
@@ -36,11 +35,11 @@ export class Messages {
             console.log(`Downloads ${messages.length} from ${result.count}`);
         }
 
-        const directory = path.join('users', dir);
+        const directory = join('users', dir);
 
         this.core.createDirectory(directory);
 
-        writeFileSync(path.join(directory, 'messages.json'), JSON.stringify(messages));
+        writeFileSync(join(directory, 'messages.json'), JSON.stringify(messages));
 
     }
 

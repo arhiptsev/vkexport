@@ -1,8 +1,8 @@
-import { Attachments } from './attachments';
+import { Attachments } from './attachments/attachments';
 import { Messages } from './messages';
 import readline from 'readline-sync';
 import { Auth } from './auth';
-import { ConversationsList } from './types';
+import { Attachment, ConversationsList, Message, Photo, Video, VideoFiles } from './types';
 import syncRequest from 'sync-request';
 import { Core } from './core';
 import axios from 'axios';
@@ -11,7 +11,10 @@ import { AXIOS_TOKEN } from './constants';
 import { Injector } from './di/injector';
 import { HttpClient } from './http/http_client';
 import { RequestBuilder } from './http/request_buider';
-import { Inject } from './di/inject';
+import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { getJsonFromFile, isPhoto, isVideo } from './utils/get-json-from-file';
+
 
 @Injectable()
 export class Main {
@@ -53,17 +56,18 @@ export class Main {
     }
 
     private switchAction(): void {
+
         const action = readline.keyInSelect([
             'Экспортировать все сообщения в json.',
             'Экспортировать все фото из вложений.',
             'Экспортировать все видео из вложений.',
+            'Экспортировать все вложения для диалога.',
         ],
             'Что вы хотите экспортировать?',
             {
                 cancel: 'Выбрать другой диалог'
             }
         );
-
 
         switch (action) {
             case -1: this.init();
@@ -74,8 +78,9 @@ export class Main {
                 break;
             case 2: this.exportVideo();
                 break;
+            case 3: this.exportAttachments();
+                break;
         }
-
 
     }
 
@@ -93,6 +98,15 @@ export class Main {
         await this.attachments.downloadVideoFormDialog(this.peerId, this.peerId.toString());
         console.log('Экспорт видео завершен');
         this.switchAction();
+    }
+
+    private exportAttachments(): void {
+        try {
+            this.attachments.downloadAttachmentsFromDialog(this.peerId);
+        } catch (error) {
+            console.log(error.message);
+            this.switchAction();
+        }
     }
 
     private async requestPeerId(): Promise<void> {

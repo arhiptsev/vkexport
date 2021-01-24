@@ -1,3 +1,4 @@
+import { Attachments } from "./attachments/attachments";
 
 export interface ApiResponse<T> {
     response: T;
@@ -83,7 +84,7 @@ export interface Message {
     important: boolean;
     random_id: number;
     attachments: Array<Attachment<Photo | Video | Audio | Doc | Link | Market | Wall>>;
-    id_hidden: boolean;
+    is_hidden: boolean;
     conversation_message_id: number;
 }
 
@@ -200,4 +201,11 @@ export interface Market {
 
 export interface Wall {
 
+}
+
+export interface AttachmenInfo  {
+    owner_id: number;
+    id: number;
+    url: string;
+    type: string
 }
