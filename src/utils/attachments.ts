@@ -1,5 +1,6 @@
+import { PhotoSize } from "@prisma/client";
 import { pick } from "lodash";
-import { Photo, VideoFiles } from "../types";
+import { Photo, PhotoSizes, VideoFiles } from "../types";
 import { VideoQuality } from "./types";
 
 export const getOnlyQuality: (files: VideoFiles) => VideoQuality = files =>
@@ -14,11 +15,15 @@ export function getVideoBestResolutionLink(files: VideoFiles): string {
 }
 
 export function getPhotoBestResolutionLink(photo: Photo): string {
+    return getMaxSize(photo.sizes);
+}
+
+export function getMaxSize(sizes: Partial<PhotoSize>[]): string {
     let link = "";
     const sizePriority = ["w", "z", "y", "x", "m", "s"];
     for (let size of sizePriority) {
-        if (photo.sizes.find(i => i.type == size) !== undefined) {
-            link = photo.sizes.find(i => i.type == size).url;
+        if (sizes.find(i => i.type == size) !== undefined) {
+            link = sizes.find(i => i.type == size).url;
             break;
         }
     }

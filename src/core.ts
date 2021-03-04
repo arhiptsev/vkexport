@@ -39,28 +39,28 @@ export class Core {
         return requestUrl;
     }
 
-    public async downloadFile(
+    public downloadFile(
         fullPath: string,
         url: string,
         onProgress?: (current: number, length: number) => void
     ): Promise<any> {
-        await new Promise((resolve, reject) => {
-            const dl = fetch(url)
+        return new Promise((resolve, reject) => {
+            fetch(url)
                 .then(res => {
-                    if (res.ok) {
-                        let currentLength = 0;
-                        const fullLength = +res.headers.get('Content-Length');
-                        res.body.on('data', d => {
-                            currentLength += d.length;
-                            !onProgress || onProgress(currentLength, fullLength);
-                        });
-                        const stream = createWriteStream(fullPath);
-                        stream.on('finish', resolve);
-                        res.body.on('error', reject)
-                        res.body.pipe(stream);
-                    }
-                });
+                    if (!res.ok) reject(`Ошибка загрузки: ${url}`);
 
+                    let currentLength = 0;
+                    const fullLength = +res.headers.get('Content-Length');
+                    res.body.on('data', d => {
+                        currentLength += d.length;
+                        !onProgress || onProgress(currentLength, fullLength);
+                    });
+                    const stream = createWriteStream(fullPath);
+                    stream.on('finish', resolve);
+                    res.body.on('error', reject)
+                    res.body.pipe(stream);
+
+                });
         });
     }
 

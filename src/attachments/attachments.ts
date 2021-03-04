@@ -19,7 +19,7 @@ export class Attachments {
   ) { }
 
 
-  public async downloadAttachmentsFromDialog(peerId:number): Promise<void> {
+  public async downloadAttachmentsFromDialog(peerId: number): Promise<void> {
     const directory = join('users', `${peerId}`);
 
 
@@ -30,7 +30,7 @@ export class Attachments {
     try {
       const messages = getJsonFromFile(join(directory, 'messages.json'));
       const result = this.getAttachmentUrlsFromMessages(messages);
-
+      console.log(result.length);
       const dir = join('users', `${peerId}`, 'attachments');
       await this.attachmentDownloader.download(result, dir);
       // writeFileSync(join('users', `${peerId}`, 'test.json'), JSON.stringify(result));
@@ -40,18 +40,24 @@ export class Attachments {
   }
 
   private getAttachmentUrlsFromMessages(messages: Message[]): AttachmenInfo[] {
-    return messages.map(message => {
-      const result: AttachmenInfo[] = [];
+    try {
 
-      if (message.attachments) {
-        result.push(...this.getAttachmensFromMessage(message.attachments));
-      }
-      if (message.fwd_messages) {
-        result.push(...this.getAttachmentUrlsFromMessages(message.fwd_messages));
-      }
-      return result;
+      return messages.map(message => {
+        const result: AttachmenInfo[] = [];
 
-    }).flat();
+        if (message.attachments) {
+          result.push(...this.getAttachmensFromMessage(message.attachments));
+        }
+        if (message.fwd_messages) {
+          result.push(...this.getAttachmentUrlsFromMessages(message.fwd_messages));
+        }
+        return result;
+
+      }).flat();
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
   }
 
   private getAttachmensFromMessage(attachments: Attachment<any>[]): AttachmenInfo[] {

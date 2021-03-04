@@ -1,10 +1,10 @@
 import readline from 'readline-sync';
-import { readFileSync, writeFileSync } from 'fs';
 import { AXIOS_TOKEN } from './constants';
 import { AxiosInstance } from 'axios';
 import { AuthParams } from './types';
 import { Injectable } from './di/injectable';
 import { Inject } from './di/inject';
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class Auth {
@@ -14,23 +14,23 @@ export class Auth {
     public token: string;
 
     constructor(
-        @Inject(AXIOS_TOKEN) private axios: AxiosInstance
+        @Inject(AXIOS_TOKEN) private axios: AxiosInstance,
+        private storage: PrismaClient
     ) { }
 
     public async getToken(): Promise<void> {
 
         try {
-            const tokenFile = readFileSync('./token.json');
-            const token = JSON.parse(tokenFile.toString());
-            if (!token.token) throw new Error();
-            this.token = token.token;
+            const { value: token } = await this.storage.options.findUnique({ where: { key: 'vk_token' } });
+            if (!token) throw new Error();
+            this.token = token;
         }
         catch {
             this.username = this.requestUsername();
             this.password = this.requestPassword();
             try {
                 const res = await this.sendAuthRequest();
-                this.writeToken(res.access_token);
+                await this.writeToken(res.access_token);
                 await this.getToken();
             }
             catch (error) {
@@ -66,27 +66,34 @@ export class Auth {
         return data;
     }
 
-    public writeToken(token: string): void {
-        writeFileSync('./token.json', JSON.stringify({ token: token }));
+    public writeToken(token: string): Promise<any> {
+        return this.storage.options.update({
+            where: {
+                key: 'vk_token'
+            },
+            data: {
+                value: token
+            }
+        });
     }
 
     private async errorHandler(res: any): Promise<void> {
         switch (res.error) {
             case 'need_validation':
-                this.validation();
+                await this.validation();
                 break;
             case 'invalid_client':
-                this.invalidClientHandler(res);
+                await this.invalidClientHandler(res);
                 break;
             default: throw new Error('Возникла непредвиденная ошибка!');
         }
 
     }
 
-    private invalidClientHandler(res: any): void {
+    private async invalidClientHandler(res: any): Promise<void> {
         if (res.error_type === 'username_or_password_is_incorrect') {
             console.log('Неверный логин или пароль.')
-            this.getToken();
+            await this.getToken();
         } else {
             throw new Error('Возникла непредвиденная ошибка!');
         }
@@ -96,10 +103,10 @@ export class Auth {
         const code = this.requestCode();
         const r = await this.sendAuthRequest(code);
         if (r.access_token) {
-            this.writeToken(r.access_token);
-            this.getToken();
+            await this.writeToken(r.access_token);
+            await this.getToken();
         } else {
-            this.validation()
+            await this.validation()
         }
     }
 

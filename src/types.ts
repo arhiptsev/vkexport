@@ -78,7 +78,7 @@ export interface Message {
     peer_id: number;
     date: number;
     read_state: boolean;
-    out: boolean;
+    out: number;
     fwd_messages: Array<Message>;
     reply_message: Message;
     important: boolean;
@@ -115,6 +115,19 @@ export interface Photo {
     access_key: string;
 }
 
+export interface PhotoInput {
+    id: number;
+    album_id: number;
+    owner_id: number;
+    user_id: number;
+    text: string;
+    date: number;
+    sizes: { create: Array<PhotoSizes> };
+    width: number;
+    height: number;
+    access_key: string;
+}
+
 export interface PhotosDataForDownlod {
     messageId: number;
     id: number;
@@ -136,16 +149,6 @@ export interface Video {
     duration: number;
     files: VideoFiles;
     owner_id: number;
-    // photo_130: string;
-    // photo_320: string;
-    // photo_640: string;
-    // photo_800: string;
-    // photo_1280: string;
-    // first_frame_130: string;
-    // first_frame_320: string;
-    // first_frame_640: string;
-    // first_frame_800: string;
-    // first_frame_1280: string;
     first_frame: Array<VideoImage>;
     date: number;
     adding_date: number;
@@ -203,7 +206,7 @@ export interface Wall {
 
 }
 
-export interface AttachmenInfo  {
+export interface AttachmenInfo {
     owner_id: number;
     id: number;
     url: string;

@@ -1,0 +1,364 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["createMany", "groupBy"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Accounts {
+  id       Int     @id @default(autoincrement())
+  vk_token Int     @unique
+  name     String?
+}
+
+model Options {
+  key   String  @unique
+  value String?
+}
+
+model Users {
+  id    Int     @id @default(autoincrement())
+  vk_id Int     @unique
+  name  String?
+}
+
+model Conversation {
+  export_id         Int     @id @default(autoincrement())
+  last_message_id   Int?
+  in_read           Int?
+  out_read          Int?
+  is_marked_unread  Boolean
+  important         Boolean
+  can_send_money    Boolean
+  can_receive_money Boolean
+
+  peer    Peer?
+  message Message[]
+}
+
+model Peer {
+  export_id              Int          @id @default(autoincrement())
+  conversation_export_id Int
+  id                     Int          @unique
+  type                   String?
+  local_id               Int?
+  conversation           Conversation @relation(fields: [conversation_export_id], references: [export_id])
+  user_info              UserInfo?
+}
+
+model UserInfo {
+  export_id           Int      @id @default(autoincrement())
+  export_peer_id      Int
+  first_name          String?
+  id                  Int?
+  last_name           String?
+  can_access_closed   Boolean?
+  is_closed           Boolean?
+  deactivated         String?
+  can_invite_to_chats Boolean?
+  photo_max           String?
+  photo_file          String?
+  peer                Peer     @relation(fields: [export_peer_id], references: [export_id])
+}
+
+model Message {
+  export_id               Int           @id @default(autoincrement())
+  conversation_export_id  Int?
+  parent_id               Int?
+  reply_id                Int?
+  id                      Int?
+  text                    String
+  user_id                 Int?
+  from_id                 Int
+  peer_id                 Int?
+  ref                     String?
+  ref_source              String?
+  date                    Int
+  read_state              Boolean?
+  out                     Int?
+  update_time             Int?
+  important               Boolean?
+  payload                 String?
+  random_id               Int?
+  is_hidden               Boolean?
+  conversation_message_id Int?
+  conversation            Conversation? @relation(fields: [conversation_export_id], references: [export_id])
+  attachments             Attachment[]
+  fwd_messages            Message[]     @relation("MessageToMessages")
+  parent_message          Message?      @relation("MessageToMessages", fields: [parent_id], references: [export_id])
+  reply_message           Message?      @relation("MessageToMessage")
+  replied_message         Message?      @relation("MessageToMessage", fields: [reply_id], references: [export_id])
+}
+
+model Attachment {
+  export_id         Int           @id @default(autoincrement())
+  message_export_id Int
+  type              String
+  audio_message     AudioMessage?
+  photo             Photo?
+  video             Video?
+  audio             Audio?
+  Message           Message       @relation(fields: [message_export_id], references: [export_id])
+}
+
+model Audio {
+  export_id             Int           @id @default(autoincrement())
+  attachment_export_id  Int?
+  artist                String?
+  id                    Int?
+  title                 String?
+  url                   String?
+  duration              Int?
+  date                  Int?
+  album_id              Int?
+  genre_id              Int?
+  content_restricted    Int?
+  owner_id              Int?
+  access_key            String?
+  no_search             Int?
+  is_explicit           Boolean?
+  is_focus_track        Boolean?
+  is_licensed           Boolean?
+  track_code            String?
+  short_videos_allowed  Boolean?
+  stories_allowed       Boolean?
+  stories_cover_allowed Boolean?
+  performer             String?
+  main_artists          AudioArtist[]
+  ads                   AudioAds?
+  Attachment            Attachment?   @relation(fields: [attachment_export_id], references: [export_id])
+}
+
+model AudioArtist {
+  export_id       Int     @id @default(autoincrement())
+  audio_export_id Int?
+  id              String?
+  name            String?
+  domain          String?
+  Audio           Audio?  @relation(fields: [audio_export_id], references: [export_id])
+}
+
+model AudioAds {
+  export_id        Int     @id @default(autoincrement())
+  audio_export_id  Int?
+  content_id       String?
+  duration         String?
+  account_age_type String?
+  puid1            String?
+  puid22           String?
+  Audio            Audio?  @relation(fields: [audio_export_id], references: [export_id])
+}
+
+model AudioMessage {
+  export_id            Int         @id @default(autoincrement())
+  attachment_export_id Int?
+  access_key           String?
+  transcript_error     Int?
+  duration             Int?
+  id                   Int?
+  link_mp3             String?
+  link_ogg             String?
+  transcript_state     String?
+  transcript           String?
+  owner_id             Int?
+  waveform             Int[]
+  Attachment           Attachment? @relation(fields: [attachment_export_id], references: [export_id])
+}
+
+model Photo {
+  export_id            Int      @id @default(autoincrement())
+  attachment_export_id Int
+  album_id             Int
+  date                 Int
+  id                   Int
+  owner_id             Int
+  has_tags             Boolean?
+
+  user_id    Int?
+  post_id    Int?
+  lat        Float?
+  photo_256  String?
+  place      String?
+  long       Float?
+  access_key String?
+  sizes      PhotoSize[]
+  text       String?
+  Attachment Attachment  @relation(fields: [attachment_export_id], references: [export_id])
+}
+
+model PhotoSize {
+  export_id       Int     @id @default(autoincrement())
+  height          Int?
+  url             String
+  type            String?
+  width           Int?
+  file            String?
+  Photo           Photo   @relation(fields: [export_photo_id], references: [export_id])
+  export_photo_id Int
+}
+
+model Video {
+  export_id                  Int               @id @default(autoincrement())
+  attachment_export_id       Int?
+  access_key                 String
+  can_comment                Int?
+  can_like                   Int?
+  can_repost                 Int?
+  can_subscribe              Int?
+  can_edit                   Int?
+  can_attach_link            Int?
+  is_private                 Int?
+  can_add_to_faves           Int?
+  can_add                    Int?
+  date                       Int?
+  processing                 Int?
+  content_restricted         Int?
+  content_restricted_message String?
+  album_id                   Int?
+  balance                    Int?
+  live_start_time            Int?
+  live_notify                Int?
+  converting                 Int?
+  description                String?
+  spectators                 Int?
+  duration                   Int?
+  image                      VideoImage[]
+  first_frame                VideoFirstFrame[]
+  width                      Int?
+  ov_id                      String?
+  height                     Int?
+  id                         Int?
+  owner_id                   Int?
+  title                      String?
+  is_favorite                Boolean?
+  player                     String?
+  added                      Int?
+  track_code                 String?
+  repeat                     Int?
+  type                       String?
+  views                      Int?
+  platform                   String?
+  local_views                Int?
+  comments                   Int?
+  is_subscribed              Int?
+  user_id                    Int?
+  likes                      Like?
+  reposts                    Repost?
+  files                      VideoFile?
+  timeline_thumbs            TimelineThumbs?
+  ads                        VideoAds?
+  Attachment                 Attachment?       @relation(fields: [attachment_export_id], references: [export_id])
+}
+
+model VideoAds {
+  export_id        Int             @id @default(autoincrement())
+  video_export_id  Int?
+  slot_id          Int?
+  timeout          Int?
+  can_play         Int?
+  params           VideoAdsParams?
+  sections         String[]
+  midroll_percents Float[]
+  Video            Video?          @relation(fields: [video_export_id], references: [export_id])
+}
+
+model VideoAdsParams {
+  export_id                  Int     @id @default(autoincrement())
+  video_ads_params_export_id Int?
+  vk_id                      Int?
+  duration                   Int?
+  video_id                   String?
+  pl                         Int?
+  content_id                 Int?
+  lang                       Int?
+  puid1                      Int?
+  puid2                      Int?
+  puid3                      Int?
+  puid4                      Int?
+  puid5                      Int?
+  puid6                      Int?
+  puid7                      Int?
+  puid8                      Int?
+  puid9                      Int?
+  puid10                     Int?
+  puid12                     Int?
+  puid13                     Int?
+  puid14                     Int?
+  puid15                     Int?
+  puid18                     Int?
+  puid21                     Int?
+  sign                       String?
+  is_xz_video                Int?
+  vk_catid                   Int?
+
+  VideoAds VideoAds? @relation(fields: [video_ads_params_export_id], references: [export_id])
+}
+
+model TimelineThumbs {
+  export_id       Int      @id @default(autoincrement())
+  video_export_id Int?
+  count_per_image Int?
+  count_per_row   Int?
+  count_total     Int?
+  frame_height    Int?
+  frame_width     Float?
+  links           String[]
+  Video           Video?   @relation(fields: [video_export_id], references: [export_id])
+}
+
+model VideoFile {
+  export_id       Int     @id @default(autoincrement())
+  video_export_id Int?
+  mp4_240         String?
+  mp4_360         String?
+  mp4_480         String?
+  mp4_720         String?
+  mp4_1080        String?
+  hls             String?
+  dash_uni        String?
+  dash_webm       String?
+  live            String?
+  dash_sep        String?
+  external        String?
+  Video           Video?  @relation(fields: [video_export_id], references: [export_id])
+}
+
+model Repost {
+  export_id       Int    @id @default(autoincrement())
+  video_export_id Int?
+  count           Int?
+  wall_count      Int?
+  mail_count      Int?
+  user_reposted   Int?
+  Video           Video? @relation(fields: [video_export_id], references: [export_id])
+}
+
+model Like {
+  export_id       Int    @id @default(autoincrement())
+  video_export_id Int?
+  count           Int?
+  user_likes      Int?
+  Video           Video? @relation(fields: [video_export_id], references: [export_id])
+}
+
+model VideoImage {
+  export_id    Int    @id @default(autoincrement())
+  video_id     Int?
+  height       Int?
+  url          String
+  width        Int?
+  with_padding Int?
+  Video        Video? @relation(fields: [video_id], references: [export_id])
+}
+
+model VideoFirstFrame {
+  export_id Int    @id @default(autoincrement())
+  video_id  Int?
+  height    Int?
+  url       String
+  width     Int?
+  Video     Video? @relation(fields: [video_id], references: [export_id])
+}

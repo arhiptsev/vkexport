@@ -2,7 +2,7 @@ import { Attachments } from './attachments/attachments';
 import { Messages } from './messages';
 import readline from 'readline-sync';
 import { Auth } from './auth';
-import {  ConversationsList,  } from './types';
+import { ConversationsList, } from './types';
 import syncRequest from 'sync-request';
 import { Core } from './core';
 import axios from 'axios';
@@ -14,12 +14,13 @@ import { RequestBuilder } from './http/request_buider';
 import { AttachmentDownloader } from './attachments/attachmentDownloader';
 import { PhotoAttachments } from './attachments/photos';
 import { VideoAttachemnts } from './attachments/videos';
-
+import { PrismaClient } from '@prisma/client'
+import { pick } from 'lodash';
 
 @Injectable()
 export class Main {
 
-    private peerId: number;
+    private conversationId: number;
 
     constructor(
         private core: Core,
@@ -28,7 +29,8 @@ export class Main {
         private photoAttachments: PhotoAttachments,
         private videoAttachments: VideoAttachemnts,
         private messages: Messages,
-        private http: HttpClient
+        private http: HttpClient,
+        private storage: PrismaClient
     ) {
         this.init();
     }
@@ -41,7 +43,6 @@ export class Main {
         return `${data.response.first_name} ${data.response.last_name}`;
     }
 
-
     private async init(): Promise<void> {
 
         await this.auth.getToken();
@@ -49,7 +50,7 @@ export class Main {
         const name = this.getNameOfCurrentToken();
 
         if (!readline.keyInYNStrict(`Текущий аккаунт: ${name}, продолжить работу или войти в другой аккаунт?`)) {
-            this.auth.writeToken(null);
+            await this.auth.writeToken(null);
             await this.auth.getToken();
             this.init();
         }
@@ -87,24 +88,24 @@ export class Main {
     }
 
     private exportMessages(): void {
-        this.messages.downloadMessages(this.peerId, this.peerId.toString())
+        this.messages.downloadMessages(this.conversationId, this.conversationId.toString())
     }
 
     private async exportPhoto(): Promise<void> {
-        await this.photoAttachments.downloadPhotosFromDialog(this.peerId);
+        await this.photoAttachments.downloadPhotosFromDialog(this.conversationId);
         console.log('Экспорт фото завершен');
         this.switchAction();
     }
 
     private async exportVideo(): Promise<void> {
-        await this.videoAttachments.downloadVideoFormDialog(this.peerId);
+        await this.videoAttachments.downloadVideoFormDialog(this.conversationId);
         console.log('Экспорт видео завершен');
         this.switchAction();
     }
 
     private exportAttachments(): void {
         try {
-            this.attachments.downloadAttachmentsFromDialog(this.peerId);
+            this.attachments.downloadAttachmentsFromDialog(this.conversationId);
         } catch (error) {
             console.log(error.message);
             this.switchAction();
@@ -113,19 +114,72 @@ export class Main {
 
     private async requestPeerId(): Promise<void> {
 
-        this.peerId = readline.questionInt('Введите id диалога:');
+        const peerId = readline.questionInt('Введите id диалога (0 не выбирать диалог):');
+
+        if (peerId === 0) { return; }
+
+        const peer = await this.storage.peer.findUnique(
+            {
+                where: { id: peerId },
+                include: { conversation: true }
+            }
+        );
+
+        if (peer) {
+            this.conversationId = peer.conversation.export_id;
+            return;
+        }
 
         const res = await this.http.buildRequest()
             .section('messages')
             .method('getConversationsById')
             .params({
-                peer_ids: this.peerId
+                peer_ids: peerId
             })
             .send<ConversationsList>();
 
         if (!res.response) {
             this.requestPeerId();
+            return;
         }
+
+        const [_dialog] = res.response.items;
+
+        const dialog: any = pick(
+            _dialog,
+            'export_id',
+            'last_message_id',
+            'in_read',
+            'out_read',
+            'is_marked_unread',
+            'important',
+            'can_send_money',
+            'can_receive_money',
+            'peer'
+        );
+
+        try {
+            const { response: [userInfo] } = await this.http.buildRequest()
+                .section('users')
+                .method('get')
+                .params({
+                    user_ids: `${dialog.peer.id}`,
+                    fields: "photo_max"
+                })
+                .send<any>();
+
+            dialog.peer.user_info = { create: userInfo };
+
+        } catch (e) {
+            throw new Error('Ошбика загрузки данных пользователя!');
+        }
+
+        dialog.peer = { create: dialog.peer };
+
+        const { export_id } = await this.storage.conversation.create({
+            data: dialog
+        });
+        this.conversationId = export_id;
     }
 }
 
@@ -134,6 +188,7 @@ const injector = new Injector();
 injector.provideDependencies([
     HttpClient,
     Core,
+    PrismaClient,
     Auth,
     Messages,
     Attachments,
@@ -144,6 +199,10 @@ injector.provideDependencies([
     {
         token: RequestBuilder,
         singleton: true
+    },
+    {
+        token: AXIOS_TOKEN,
+        value: axios.create()
     },
     {
         token: AXIOS_TOKEN,

@@ -1,4 +1,4 @@
-import {  AttachmenInfo } from '../types';
+import { AttachmenInfo } from '../types';
 import cliProgress from 'cli-progress';
 import { join } from 'path';
 import { writeFileSync, existsSync } from 'fs';
@@ -24,9 +24,10 @@ export class AttachmentDownloader {
     for (let attachment of attachments) {
       bar.update(0, { loaded });
 
-      const filename = `${attachment.type}_${attachment.owner_id}_${attachment.id}.${attachment.type === 'video' ? 'mp4' : 'jpg'}`;
+      const name = `${attachment.type}_${attachment.owner_id}_${attachment.id}`;
+      const ext = attachment.type === 'video' ? 'mp4' : 'jpg';
+      const filename = `${name}.${ext}`;
       if (existsSync(join(dir, filename))) {
-        console.log(555555);
         loaded++;
         continue
       };
@@ -35,9 +36,13 @@ export class AttachmentDownloader {
         await this.core.downloadFile(join(dir, `${filename}`), attachment.url, (c, l) => {
           bar.update(Math.floor(c / (l / 100)));
         });
-      } catch {}
+      } catch {
+
+       }
       loaded++;
     }
+
+    
     // writeFileSync(join(dir, 'errors.json'), JSON.stringify(errors));
   }
 
