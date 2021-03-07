@@ -16,7 +16,7 @@
     "cors": "^2.8.5",
     "lodash": "^4.17.20",
     "log-update": "^4.0.0",
-    "node-fetch": "^2.6.0",
+    "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "reflect-metadata": "^0.1.13",
     "request": "^2.88.0",
