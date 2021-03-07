@@ -4,14 +4,14 @@ import { RequestBuilder } from "./request_buider";
 
 @Injectable()
 export class HttpClient {
-    
-    constructor(
-        private injector: Injector
-    ) { }
 
-    public buildRequest(): RequestBuilder {
-        return this.injector.getDependency(RequestBuilder);
-    }
+  constructor(
+    private injector: Injector
+  ) { }
+
+  public buildRequest(): RequestBuilder {
+    return this.injector.getDependency(RequestBuilder);
+  }
 }
 
 

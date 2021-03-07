@@ -1,3 +1,8 @@
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { pick } from 'lodash';
+import { PrismaClient } from '@prisma/client';
+
 import {
   AttachmentsResponse,
   Photo,
@@ -5,37 +10,45 @@ import {
 } from '../types';
 import { HttpClient } from '../http/http_client';
 import { Injectable } from '../di/injectable';
-import { pick } from 'lodash';
 import { getMaxSize, getPhotoBestResolutionLink } from '../utils/attachments';
 import { AttachmentDownloader } from './attachmentDownloader';
-import { join } from 'path';
-import { PrismaClient } from '@prisma/client';
-import { Core } from '../core';
-import { v4 as uuidv4 } from 'uuid';
+import { createDirectory } from '../utils/create-directory';
+import { FileDownloader } from './FileDownloader';
 
 @Injectable()
 export class PhotoAttachments {
 
   constructor(
-    private attachmentDownloader: AttachmentDownloader,
     private http: HttpClient,
-    private core: Core,
-    private storage: PrismaClient
+    private storage: PrismaClient,
+    private attachmentDownloader: AttachmentDownloader,
+    private fileDownloader: FileDownloader
   ) { }
 
   public async downloadPhotosFromDialog(dialogId: number): Promise<void> {
 
+    const photos = await this.getPhotoAttachments(dialogId);
 
-    let photos = await this.storage.photo.findMany({
+    const dir = join(__dirname, '..', '..', dialogId.toString(), 'photos')
+    createDirectory(dir)
+
+    await this.attachmentDownloader.download(photos, dir)
+
+    console.log(`Complete!!!`);
+  }
+
+  public async downloadAllPhotos(): Promise<void> {
+
+    const photos = await this.storage.photo.findMany({
       include: { sizes: true }
     });
 
     const filteredPhotos = photos.filter(photo => photo.sizes.every(s => !s.file));
 
-    photos = null;
-
     let count = 0;
     const errors = [];
+
+    const downloader = this.fileDownloader.createDownloader(filteredPhotos.length);
 
     for (const photo of filteredPhotos) {
       const url = getMaxSize(photo.sizes);
@@ -43,7 +56,8 @@ export class PhotoAttachments {
 
       try {
         const filename = `${uuidv4()}.jpg`;
-        await this.core.downloadFile(`${join(__dirname, '..', '..', 'photos', filename)}`, url);
+
+        await downloader.next({ path: join(__dirname, '..', '..', 'photos', filename), url });
 
         await this.storage.photoSize.update({
           where: {
@@ -62,16 +76,8 @@ export class PhotoAttachments {
 
     console.log(errors);
     console.log(`Complete!!! Errors ${errors.length}`);
-
-    // photos.forEach()
-    // console.log(photos.avg.export_photo_id);
-    // photos
-    // photos.forEach(photo => photo['test'] = getMaxSize(photo));
-
-    // const dir = join('users', `${dialogId}`, 'photo');
-    // const urls = await this.getPhotoAttachments(dialogId);
-    // await this.attachmentDownloader.download(urls, dir);
   }
+
 
   private async getPhotoAttachments(dialogId: number): Promise<AttachmenInfo[]> {
     const attachmentUrls = [];

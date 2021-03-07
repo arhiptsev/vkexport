@@ -1,5 +1,5 @@
 export type Provider = {
-    token: any;
-    value?: any;
-    singleton?: boolean;
+  token: any;
+  value?: any;
+  singleton?: boolean;
 }

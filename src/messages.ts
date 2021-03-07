@@ -1,12 +1,10 @@
-import { Attachment, Message, Photo, responseMessages, PhotoInput } from "./types";
+import { Message, responseMessages } from "./types";
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { Core } from "./core";
 import { Injectable } from "./di/injectable";
-import { PrismaClient, Video } from "@prisma/client";
-import { add, every, isArray, isBoolean, isNumber, isObject, isObjectLike, isString, map, omit, uniqueId, values } from "lodash";
-import { keys } from "ts-transformer-keys";
-import { O_NONBLOCK } from "constants";
+import { PrismaClient } from "@prisma/client";
+import { isArray, isObject, isObjectLike } from "lodash";
 
 const ATTACHMENTS_TYES = ['video', 'photo', 'audio_message', 'audio'];
 
@@ -98,19 +96,21 @@ export class Messages {
       return;
     }
 
-    EXCLUDE_FIEILDS.forEach(field => { delete obj[field]});
+    EXCLUDE_FIEILDS.forEach(field => { delete obj[field] });
 
     if (obj.attachments && isArray(obj.attachments)) {
       obj.attachments = obj.attachments.filter(({ type }) => ATTACHMENTS_TYES.includes(type));
     }
 
-    (!isArray(obj) && isObjectLike(obj)) && Object.entries(obj)
-      .forEach(([key, value]) => {
-        if (!isArray(value) && !isObjectLike(value)) { return; }
-        if (isArray(value) && value.every(i => isString(i) || isBoolean(i) || isNumber(i))) { return; }
-        obj[key] = { create: value }
-        this.addCreateKeyForRelations(value);
-      });
+    if (!isArray(obj) && isObjectLike(obj)) {
+      Object.entries(obj)
+        .forEach(([key, value]) => {
+          if (!isArray(value) && !isObjectLike(value)) { return; }
+          if (isArray(value) && value.some(i => isObject())) { return; }
+          obj[key] = { create: value }
+          this.addCreateKeyForRelations(value);
+        });
+    }
 
   }
 
