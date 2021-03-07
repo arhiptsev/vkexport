@@ -1,21 +1,21 @@
+import { pick } from 'lodash';
+import axios from 'axios';
+import readline from 'readline-sync';
+import { Peer, Conversation, PrismaClient } from '@prisma/client'
+
+import { Injector } from './di/injector';
 import { Attachments } from './attachments/attachments';
 import { Messages } from './messages';
-import readline from 'readline-sync';
 import { Auth } from './auth';
-import { ConversationsList, } from './types';
-import syncRequest from 'sync-request';
+import { ConversationsList, ProfileInfo, } from './types';
 import { Core } from './core';
-import axios from 'axios';
 import { Injectable } from './di/injectable';
 import { AXIOS_TOKEN } from './constants';
-import { Injector } from './di/injector';
 import { HttpClient } from './http/http_client';
 import { RequestBuilder } from './http/request_buider';
 import { AttachmentDownloader } from './attachments/attachmentDownloader';
 import { PhotoAttachments } from './attachments/photos';
 import { VideoAttachemnts } from './attachments/videos';
-import { PrismaClient } from '@prisma/client'
-import { pick } from 'lodash';
 
 @Injectable()
 export class Main {
@@ -23,7 +23,6 @@ export class Main {
     private conversationId: number;
 
     constructor(
-        private core: Core,
         private auth: Auth,
         private attachments: Attachments,
         private photoAttachments: PhotoAttachments,
@@ -35,31 +34,33 @@ export class Main {
         this.init();
     }
 
-    private getNameOfCurrentToken(): string {
-        const request = this.core.buildRequestUrl('account', 'getProfileInfo');
-        const res = syncRequest('GET', request);
-
-        const data = JSON.parse(res.body.toString());
-        return `${data.response.first_name} ${data.response.last_name}`;
-    }
-
     private async init(): Promise<void> {
-
         await this.auth.getToken();
 
-        const name = this.getNameOfCurrentToken();
+        const name = await this.getNameOfCurrentToken();
+        const accountIsSelected = readline.keyInYNStrict(`Текущий аккаунт: ${name}, продолжить работу или войти в другой аккаунт?`);
 
-        if (!readline.keyInYNStrict(`Текущий аккаунт: ${name}, продолжить работу или войти в другой аккаунт?`)) {
+        if (!accountIsSelected) {
             await this.auth.writeToken(null);
-            await this.auth.getToken();
             this.init();
+            return;
         }
+
         await this.requestPeerId();
-        this.switchAction();
+    }
+
+    private async getNameOfCurrentToken(): Promise<string> {
+        const { response } = await this.http.buildRequest()
+            .section('account')
+            .method('getProfileInfo')
+            .send<ProfileInfo>();
+
+        const { first_name, last_name } = response;
+
+        return `${first_name} ${last_name}`;
     }
 
     private switchAction(): void {
-
         const action = readline.keyInSelect([
             'Экспортировать все сообщения в json.',
             'Экспортировать все фото из вложений.',
@@ -116,14 +117,12 @@ export class Main {
 
         const peerId = readline.questionInt('Введите id диалога (0 не выбирать диалог):');
 
-        if (peerId === 0) { return; }
+        if (peerId === 0) {
+            this.switchAction();
+            return;
+        }
 
-        const peer = await this.storage.peer.findUnique(
-            {
-                where: { id: peerId },
-                include: { conversation: true }
-            }
-        );
+        const peer = await this.getPeer(peerId)
 
         if (peer) {
             this.conversationId = peer.conversation.export_id;
@@ -180,6 +179,19 @@ export class Main {
             data: dialog
         });
         this.conversationId = export_id;
+
+        this.switchAction();
+    }
+
+
+
+    private getPeer(id: number): Promise<Peer & { conversation: Conversation }> {
+        return this.storage.peer.findUnique(
+            {
+                where: { id },
+                include: { conversation: true }
+            }
+        );
     }
 }
 
@@ -199,10 +211,6 @@ injector.provideDependencies([
     {
         token: RequestBuilder,
         singleton: true
-    },
-    {
-        token: AXIOS_TOKEN,
-        value: axios.create()
     },
     {
         token: AXIOS_TOKEN,

@@ -1,7 +1,8 @@
-import { AttachmenInfo } from '../types';
 import cliProgress from 'cli-progress';
 import { join } from 'path';
-import { writeFileSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
+
+import { AttachmenInfo } from '../types';
 import { Core } from '../core';
 import { Injectable } from '../di/injectable';
 import { FORMAT_PROGRESS_BAR } from '../common/constants';
@@ -38,11 +39,11 @@ export class AttachmentDownloader {
         });
       } catch {
 
-       }
+      }
       loaded++;
     }
 
-    
+
     // writeFileSync(join(dir, 'errors.json'), JSON.stringify(errors));
   }
 
