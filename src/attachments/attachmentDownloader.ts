@@ -6,7 +6,7 @@ import { AttachmenInfo } from '../types';
 import { Core } from '../core';
 import { Injectable } from '../di/injectable';
 import { FileDownloader } from './FileDownloader';
-
+import { ATTACHMENT_EXTENSIONS } from './constants';
 
 @Injectable()
 export class AttachmentDownloader {
@@ -25,7 +25,7 @@ export class AttachmentDownloader {
     for (let attachment of attachments) {
 
       const name = `${attachment.type}_${attachment.owner_id}_${attachment.id}_${uuidv4()}`;
-      const ext = attachment.type === 'video' ? 'mp4' : 'jpg';
+      const ext = ATTACHMENT_EXTENSIONS[attachment.type];
       const filename = `${name}.${ext}`;
       const path = join(dir, filename);
 
@@ -37,7 +37,6 @@ export class AttachmentDownloader {
       };
 
     }
-    // writeFileSync(join(dir, 'errors.json'), JSON.stringify(errors));
   }
 
 }

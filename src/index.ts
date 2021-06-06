@@ -17,6 +17,7 @@ import { AttachmentDownloader } from './attachments/attachmentDownloader';
 import { PhotoAttachments } from './attachments/photos';
 import { VideoAttachemnts } from './attachments/videos';
 import { FileDownloader } from './attachments/FileDownloader';
+import { AudioMessage } from './attachments/audio-message';
 
 @Injectable()
 export class Main {
@@ -28,6 +29,7 @@ export class Main {
     private attachments: Attachments,
     private photoAttachments: PhotoAttachments,
     private videoAttachments: VideoAttachemnts,
+    private audioMessageAttachments: AudioMessage,
     private messages: Messages,
     private http: HttpClient,
     private storage: PrismaClient
@@ -68,6 +70,7 @@ export class Main {
       'Экспортировать все фото из базы.',
       'Экспортировать все видео из вложений.',
       'Экспортировать все вложения для диалога.',
+      'Экспортировать все аудио сообщения из базы.',
     ],
       'Что вы хотите экспортировать?',
       {
@@ -84,9 +87,11 @@ export class Main {
         break;
       case 2: this.downloadPhotosFromDB();
         break;
-      case 3: this.exportVideo();
+      case 3: this.downloadVideoFromDB();
         break;
       case 4: this.exportAttachments();
+        break;
+      case 5: this.downloadAudioMessagesFromDB();
         break;
     }
 
@@ -110,8 +115,14 @@ export class Main {
     this.switchAction();
   }
 
-  private async exportVideo(): Promise<void> {
-    await this.videoAttachments.downloadVideoFormDialog(this.conversationId);
+  private async downloadAudioMessagesFromDB(): Promise<void> {
+    await this.audioMessageAttachments.downloadAllAudioMessages();
+    console.log('Экспорт аудио сообщений завершен');
+    this.switchAction();
+  }
+
+  private async downloadVideoFromDB(): Promise<void> {
+    await this.videoAttachments.downloadVideoFromDB();
     console.log('Экспорт видео завершен');
     this.switchAction();
   }
@@ -219,6 +230,7 @@ injector.provideDependencies([
   Attachments,
   VideoAttachemnts,
   PhotoAttachments,
+  AudioMessage,
   AttachmentDownloader,
   Main,
   FileDownloader,

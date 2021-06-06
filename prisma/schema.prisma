@@ -26,7 +26,7 @@ model Users {
 }
 
 model Conversation {
-  export_id         Int     @id @default(autoincrement())
+  export_id         Int       @id @default(autoincrement())
   last_message_id   Int?
   in_read           Int?
   out_read          Int?
@@ -34,14 +34,13 @@ model Conversation {
   important         Boolean
   can_send_money    Boolean
   can_receive_money Boolean
-
-  peer    Peer?
-  message Message[]
+  message           Message[]
+  peer              Peer?
 }
 
 model Peer {
   export_id              Int          @id @default(autoincrement())
-  conversation_export_id Int
+  conversation_export_id Int          @unique
   id                     Int          @unique
   type                   String?
   local_id               Int?
@@ -51,25 +50,23 @@ model Peer {
 
 model UserInfo {
   export_id           Int      @id @default(autoincrement())
-  export_peer_id      Int
+  export_peer_id      Int      @unique
   first_name          String?
   id                  Int?
   last_name           String?
   can_access_closed   Boolean?
   is_closed           Boolean?
-  deactivated         String?
-  can_invite_to_chats Boolean?
   photo_max           String?
   photo_file          String?
+  deactivated         String?
+  can_invite_to_chats Boolean?
   peer                Peer     @relation(fields: [export_peer_id], references: [export_id])
 }
 
 model Message {
   export_id               Int           @id @default(autoincrement())
-  conversation_export_id  Int?
-  parent_id               Int?
-  reply_id                Int?
   id                      Int?
+  parent_id               Int?
   text                    String
   user_id                 Int?
   from_id                 Int
@@ -81,32 +78,34 @@ model Message {
   out                     Int?
   update_time             Int?
   important               Boolean?
-  payload                 String?
   random_id               Int?
   is_hidden               Boolean?
   conversation_message_id Int?
+  payload                 String?
+  conversation_export_id  Int?
+  reply_id                Int?          @unique
   conversation            Conversation? @relation(fields: [conversation_export_id], references: [export_id])
+  parent_message          Message?      @relation("MessageToMessages", fields: [parent_id], references: [export_id])
+  replied_message         Message?      @relation("MessageToMessage", fields: [reply_id], references: [export_id])
   attachments             Attachment[]
   fwd_messages            Message[]     @relation("MessageToMessages")
-  parent_message          Message?      @relation("MessageToMessages", fields: [parent_id], references: [export_id])
   reply_message           Message?      @relation("MessageToMessage")
-  replied_message         Message?      @relation("MessageToMessage", fields: [reply_id], references: [export_id])
 }
 
 model Attachment {
   export_id         Int           @id @default(autoincrement())
   message_export_id Int
   type              String
+  Message           Message       @relation(fields: [message_export_id], references: [export_id])
+  audio             Audio?
   audio_message     AudioMessage?
   photo             Photo?
   video             Video?
-  audio             Audio?
-  Message           Message       @relation(fields: [message_export_id], references: [export_id])
 }
 
 model Audio {
   export_id             Int           @id @default(autoincrement())
-  attachment_export_id  Int?
+  attachment_export_id  Int?          @unique
   artist                String?
   id                    Int?
   title                 String?
@@ -115,10 +114,9 @@ model Audio {
   date                  Int?
   album_id              Int?
   genre_id              Int?
-  content_restricted    Int?
+  performer             String?
   owner_id              Int?
   access_key            String?
-  no_search             Int?
   is_explicit           Boolean?
   is_focus_track        Boolean?
   is_licensed           Boolean?
@@ -126,10 +124,11 @@ model Audio {
   short_videos_allowed  Boolean?
   stories_allowed       Boolean?
   stories_cover_allowed Boolean?
-  performer             String?
-  main_artists          AudioArtist[]
-  ads                   AudioAds?
+  no_search             Int?
+  content_restricted    Int?
   Attachment            Attachment?   @relation(fields: [attachment_export_id], references: [export_id])
+  ads                   AudioAds?
+  main_artists          AudioArtist[]
 }
 
 model AudioArtist {
@@ -143,7 +142,7 @@ model AudioArtist {
 
 model AudioAds {
   export_id        Int     @id @default(autoincrement())
-  audio_export_id  Int?
+  audio_export_id  Int?    @unique
   content_id       String?
   duration         String?
   account_age_type String?
@@ -154,39 +153,39 @@ model AudioAds {
 
 model AudioMessage {
   export_id            Int         @id @default(autoincrement())
-  attachment_export_id Int?
+  attachment_export_id Int?        @unique
   access_key           String?
   transcript_error     Int?
   duration             Int?
   id                   Int?
   link_mp3             String?
   link_ogg             String?
-  transcript_state     String?
-  transcript           String?
   owner_id             Int?
   waveform             Int[]
+  transcript_state     String?
+  transcript           String?
+  file                 String?
   Attachment           Attachment? @relation(fields: [attachment_export_id], references: [export_id])
 }
 
 model Photo {
-  export_id            Int      @id @default(autoincrement())
-  attachment_export_id Int
+  export_id            Int         @id @default(autoincrement())
   album_id             Int
   date                 Int
   id                   Int
   owner_id             Int
   has_tags             Boolean?
-
-  user_id    Int?
-  post_id    Int?
-  lat        Float?
-  photo_256  String?
-  place      String?
-  long       Float?
-  access_key String?
-  sizes      PhotoSize[]
-  text       String?
-  Attachment Attachment  @relation(fields: [attachment_export_id], references: [export_id])
+  lat                  Float?
+  long                 Float?
+  access_key           String?
+  text                 String?
+  user_id              Int?
+  post_id              Int?
+  attachment_export_id Int         @unique
+  photo_256            String?
+  place                String?
+  Attachment           Attachment  @relation(fields: [attachment_export_id], references: [export_id])
+  sizes                PhotoSize[]
 }
 
 model PhotoSize {
@@ -195,40 +194,24 @@ model PhotoSize {
   url             String
   type            String?
   width           Int?
+  export_photo_id Int
   file            String?
   Photo           Photo   @relation(fields: [export_photo_id], references: [export_id])
-  export_photo_id Int
 }
 
 model Video {
   export_id                  Int               @id @default(autoincrement())
-  attachment_export_id       Int?
   access_key                 String
   can_comment                Int?
   can_like                   Int?
   can_repost                 Int?
   can_subscribe              Int?
-  can_edit                   Int?
-  can_attach_link            Int?
-  is_private                 Int?
   can_add_to_faves           Int?
   can_add                    Int?
   date                       Int?
-  processing                 Int?
-  content_restricted         Int?
-  content_restricted_message String?
-  album_id                   Int?
-  balance                    Int?
-  live_start_time            Int?
-  live_notify                Int?
-  converting                 Int?
   description                String?
-  spectators                 Int?
   duration                   Int?
-  image                      VideoImage[]
-  first_frame                VideoFirstFrame[]
   width                      Int?
-  ov_id                      String?
   height                     Int?
   id                         Int?
   owner_id                   Int?
@@ -237,37 +220,52 @@ model Video {
   player                     String?
   added                      Int?
   track_code                 String?
-  repeat                     Int?
   type                       String?
   views                      Int?
+  ov_id                      String?
+  can_edit                   Int?
+  can_attach_link            Int?
+  is_private                 Int?
   platform                   String?
   local_views                Int?
   comments                   Int?
-  is_subscribed              Int?
+  repeat                     Int?
+  processing                 Int?
+  live_start_time            Int?
+  live_notify                Int?
   user_id                    Int?
+  content_restricted         Int?
+  content_restricted_message String?
+  balance                    Int?
+  converting                 Int?
+  spectators                 Int?
+  is_subscribed              Int?
+  attachment_export_id       Int?              @unique
+  album_id                   Int?
+  Attachment                 Attachment?       @relation(fields: [attachment_export_id], references: [export_id])
   likes                      Like?
   reposts                    Repost?
-  files                      VideoFile?
   timeline_thumbs            TimelineThumbs?
   ads                        VideoAds?
-  Attachment                 Attachment?       @relation(fields: [attachment_export_id], references: [export_id])
+  files                      VideoFile?
+  first_frame                VideoFirstFrame[]
+  image                      VideoImage[]
 }
 
 model VideoAds {
   export_id        Int             @id @default(autoincrement())
-  video_export_id  Int?
   slot_id          Int?
   timeout          Int?
   can_play         Int?
-  params           VideoAdsParams?
   sections         String[]
   midroll_percents Float[]
+  video_export_id  Int?            @unique
   Video            Video?          @relation(fields: [video_export_id], references: [export_id])
+  params           VideoAdsParams?
 }
 
 model VideoAdsParams {
-  export_id                  Int     @id @default(autoincrement())
-  video_ads_params_export_id Int?
+  export_id                  Int       @id @default(autoincrement())
   vk_id                      Int?
   duration                   Int?
   video_id                   String?
@@ -291,56 +289,57 @@ model VideoAdsParams {
   puid18                     Int?
   puid21                     Int?
   sign                       String?
-  is_xz_video                Int?
   vk_catid                   Int?
-
-  VideoAds VideoAds? @relation(fields: [video_ads_params_export_id], references: [export_id])
+  video_ads_params_export_id Int?      @unique
+  is_xz_video                Int?
+  VideoAds                   VideoAds? @relation(fields: [video_ads_params_export_id], references: [export_id])
 }
 
 model TimelineThumbs {
   export_id       Int      @id @default(autoincrement())
-  video_export_id Int?
   count_per_image Int?
   count_per_row   Int?
   count_total     Int?
   frame_height    Int?
   frame_width     Float?
   links           String[]
+  video_export_id Int?     @unique
   Video           Video?   @relation(fields: [video_export_id], references: [export_id])
 }
 
 model VideoFile {
   export_id       Int     @id @default(autoincrement())
-  video_export_id Int?
   mp4_240         String?
   mp4_360         String?
   mp4_480         String?
   mp4_720         String?
-  mp4_1080        String?
   hls             String?
+  video_export_id Int?    @unique
   dash_uni        String?
-  dash_webm       String?
-  live            String?
   dash_sep        String?
   external        String?
+  mp4_1080        String?
+  dash_webm       String?
+  live            String?
+  file            String?
   Video           Video?  @relation(fields: [video_export_id], references: [export_id])
 }
 
 model Repost {
   export_id       Int    @id @default(autoincrement())
-  video_export_id Int?
   count           Int?
+  user_reposted   Int?
+  video_export_id Int?   @unique
   wall_count      Int?
   mail_count      Int?
-  user_reposted   Int?
   Video           Video? @relation(fields: [video_export_id], references: [export_id])
 }
 
 model Like {
   export_id       Int    @id @default(autoincrement())
-  video_export_id Int?
   count           Int?
   user_likes      Int?
+  video_export_id Int?   @unique
   Video           Video? @relation(fields: [video_export_id], references: [export_id])
 }
 

@@ -6,37 +6,70 @@ import {
   responseVideo,
   AttachmenInfo
 } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import { Core } from '../core';
 import { Injectable } from '../di/injectable';
-import { pick } from 'lodash';
-import { getVideoBestResolutionLink } from '../utils/attachments';
+import { getVideoBestResolutionLink, getVideoBestResolutionLinkWithCheck } from '../utils/attachments';
 import { AttachmentDownloader } from './attachmentDownloader';
+import { PrismaClient } from '@prisma/client';
+import { FileDownloader } from './FileDownloader';
+import fetch, { Response } from 'node-fetch';
+import { existsSync } from 'fs';
+import { isObject } from 'lodash';
+
 
 @Injectable()
 export class VideoAttachemnts {
 
   constructor(
     private core: Core,
-    private attachmentDownloader: AttachmentDownloader
+    private storage: PrismaClient,
+    private fileDownloader: FileDownloader
   ) { }
 
-  public async downloadVideoFormDialog(dialogId: number): Promise<void> {
-    const dir = join('users', `${dialogId}`, 'video');
+  public async downloadVideoFromDB(): Promise<void> {
+    const videos = await this.storage.videoFile.findMany({
+      where: {
+        file: {
+          not: null
+        }
+      },
+      include: { Video: true }
+    });
 
-    let videos: Video[] = [];
 
-    const urlList = await this.getVideoIdsFromDialog(dialogId);
-    videos = await this.getVideoObjects(urlList);
+    const downloader = this.fileDownloader.createDownloader(videos.length);
+    const errors = [];
 
-    
-    const attachments = videos.map<AttachmenInfo>(video => ({
-      ...pick(video, 'id', 'owner_id'),
-      url: getVideoBestResolutionLink(video.files),
-      type: 'video'
-    })).filter(item => item && item.url);
-    
-    await this.attachmentDownloader.download(attachments, dir);
+    for (const { Video: { id, access_key, owner_id }, export_id, file } of videos) {
+      if (file && existsSync(join(__dirname, '..', '..', 'videos', file))) {
+        continue;
+      }
+
+      const res = await this.getVideoObject({ id, owner_id, access_key });
+      if (!res || !res.files) continue;
+      const { files } = res;
+      console.log(files);
+      const url = await getVideoBestResolutionLinkWithCheck(files);
+      if (!url) { continue; }
+
+      try {
+        const filename = `${uuidv4()}.mp4`;
+        await downloader.next({ path: join(__dirname, '..', '..', 'videos', filename), url });
+        await this.storage.videoFile.update({
+          where: {
+            export_id
+          },
+          data: {
+            file: filename
+          }
+        });
+      } catch (e) {
+        console.log(e);
+        errors.push(url);
+      }
+    }
 
   }
 
@@ -70,35 +103,17 @@ export class VideoAttachemnts {
 
   }
 
-  private async getVideoObjects(idsList: Array<VideosIdentificationData>): Promise<Video[]> {
-    const videos: Video[] = [];
-    let offset = 0;
-
-    while (true) {
-      let idsListPart = idsList.slice(offset, idsList.length - 1);
-      if (!idsListPart.length) { break; }
-      if (idsListPart.length > 50) { idsListPart = idsListPart.slice(0, 49); }
-      const idsString = idsListPart
-        .map(i => `${i.owner_id}_${i.id}_${i.access_key}`)
-        .join(',');
-
-      const params = {
-        videos: idsString,
-        count: 200
-      }
-      const requestUrl = this.core.buildRequestUrl('video', 'get', params);
-
-      let response = await this.core.sendRequestWithTimeout<responseVideo>(requestUrl, 500);
-
-      videos.push(...response.response.items);
-      offset = offset + 50;
-      console.log(`Get ${videos.length} of ${idsList.length}`);
+  private async getVideoObject({ id, owner_id, access_key }: VideosIdentificationData): Promise<Video> {
+    const idsString = `${owner_id}_${id}_${access_key}`;
+    const params = {
+      videos: idsString,
+      count: 200
     }
+    const requestUrl = this.core.buildRequestUrl('video', 'get', params);
 
-    return videos;
+    const { response } = await this.core.sendRequestWithTimeout<responseVideo>(requestUrl, 500);
+    return response.items[0];
   }
-
-
 
 
 }

@@ -35,8 +35,8 @@ export class FileDownloader {
         await this.core.downloadFile(path, url, (c, l) => {
           bar.update(Math.floor(c / (l / 100)));
         });
-      } catch {
-
+      } catch (e) {
+        console.log(e);
       }
       loaded++;
     }
